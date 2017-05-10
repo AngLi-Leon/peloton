@@ -830,6 +830,7 @@ ResultType Catalog::AlterTable(const std::string &database_name,
     // reference:
     // https://github.com/postgres/postgres/blob/1d25779284fe1ba08ecd57e647292a9deb241376/src/include/commands/tablecmds.h
     // https://github.com/postgres/postgres/blob/1d25779284fe1ba08ecd57e647292a9deb241376/src/backend/catalog/storage.c
+    database->AlterTableWithOid(table_oid, schema.release());
 
 
     // Update pg_table with table info
