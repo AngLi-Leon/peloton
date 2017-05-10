@@ -75,7 +75,7 @@ class Catalog {
   // Create a table in a database
   ResultType CreateTable(const std::string &database_name,
                          const std::string &table_name,
-                         std::unique_ptr<catalog::Schema>,
+                         std::unique_ptr<catalog::Schema> schema,
                          concurrency::Transaction *txn,
                          bool is_catalog = false);
 
@@ -116,8 +116,7 @@ class Catalog {
   ResultType DropTable(oid_t database_oid, oid_t table_oid,
                        concurrency::Transaction *txn);
   // Drop an index, using its index_oid
-  ResultType DropIndex(oid_t index_oid,
-                       concurrency::Transaction *txn);
+  ResultType DropIndex(oid_t index_oid, concurrency::Transaction *txn);
 
   //===--------------------------------------------------------------------===//
   // GET WITH NAME - CHECK FROM CATALOG TABLES, USING TRANSACTION
@@ -142,6 +141,14 @@ class Catalog {
                                        concurrency::Transaction *txn = nullptr);
   //===--------------------------------------------------------------------===//
   // DEPRECATED FUNCTIONs
+
+  //===--------------------------------------------------------------------===//
+  // ALTER TABLE
+  //===--------------------------------------------------------------------===//
+  ResultType AlterTable(const std::string &database_name,
+                        const std::string &table_name,
+                        std::unique_ptr<catalog::Schema> schema,
+                        concurrency::Transaction *txn);
   //===--------------------------------------------------------------------===//
   /*
   * We're working right now to remove metadata from storage level and eliminate

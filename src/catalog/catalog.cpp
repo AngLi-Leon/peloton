@@ -613,7 +613,6 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
 
   try {
     auto database = storage_manager->GetDatabaseWithOid(database_oid);
-    // auto table = database->GetTableWithOid(table_oid);
     LOG_TRACE("Deleting table!");
     // STEP 1, read index_oids from pg_index, and iterate through
     auto index_oids = IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
@@ -768,6 +767,91 @@ storage::DataTable *Catalog::GetTableWithName(const std::string &database_name,
 }
 
 //===--------------------------------------------------------------------===//
+}
+
+/* Alter table: translate and copy an old table into a table with a new schema */
+ResultType Catalog::AlterTable(const std::string &database_name,
+                      const std::string &table_name,
+                      std::unique_ptr<catalog::Schema> schema,
+                      concurrency::Transaction *txn) {
+  if (txn == nullptr) {
+    LOG_TRACE("Do not have transaction to create table: %s",
+              table_name.c_str());
+    return ResultType::FAILURE;
+  }
+
+  LOG_TRACE("Creating table %s in database %s", table_name.c_str(),
+            database_name.c_str());
+  // get database oid from pg_database
+  oid_t database_oid =
+      DatabaseCatalog::GetInstance()->GetDatabaseOid(database_name, txn);
+  if (database_oid == INVALID_OID) {
+    LOG_TRACE("Cannot find the database %s in pg_db", database_name.c_str());
+    return ResultType::FAILURE;
+  }
+
+  // get table oid from pg_table
+  oid_t table_oid =
+      TableCatalog::GetInstance()->GetTableOid(table_name, database_oid, txn);
+  if (table_oid != INVALID_OID) {
+    LOG_TRACE("Cannot find the table %s in pg_table", table_name.c_str());
+    return ResultType::FAILURE;
+  }
+
+  try {
+    auto database = GetDatabaseWithOid(database_oid);
+
+    // Check duplicate column names
+    std::set<std::string> column_names;
+    auto columns = schema.get()->GetColumns();
+
+    for (auto column : columns) {
+      auto column_name = column.GetName();
+      if (column_names.count(column_name) == 1) {
+        LOG_TRACE(
+            "Can't create table %s with duplicate column names. RESULT_FAILURE",
+            table_name.c_str());
+        return ResultType::FAILURE;
+      }
+      column_names.insert(column_name);
+    }
+
+    auto pg_table = TableCatalog::GetInstance();
+    pg_table->DeleteTable(table_oid, txn);  // old schema only visible to previous Txns
+    // pg_attribute deletes?
+    // pg_index??
+
+
+    // actual alter table is implemented here..
+    // call some storage level methods...
+    // I will refine it after exam...
+    // We should not reuse executor here like seq_scan since they require txn and has visibility issues?
+    // So I think this must be a storage level function (we have to write scan and copy by ourself)!
+    // reference:
+    // https://github.com/postgres/postgres/blob/1d25779284fe1ba08ecd57e647292a9deb241376/src/include/commands/tablecmds.h
+    // https://github.com/postgres/postgres/blob/1d25779284fe1ba08ecd57e647292a9deb241376/src/backend/catalog/storage.c
+
+
+    // Update pg_table with table info
+    pg_table->InsertTable(table_oid, table_name, database_oid, pool_.get(),
+                          txn);
+    oid_t column_id = 0;
+    for (auto column : schema->GetColumns()) {
+      ColumnCatalog::GetInstance()->InsertColumn(
+          table_oid, column.GetName(), column_id, column.GetOffset(),
+          column.GetType(), column.IsInlined(), column.GetConstraints(),
+          pool_.get(), txn);
+      column_id++;
+    }
+
+    CreatePrimaryIndex(database_oid, table_oid, txn);
+
+    return ResultType::SUCCESS;
+  } catch (CatalogException &e) {
+    LOG_TRACE("Can't found database %s. Return RESULT_FAILURE",
+              database_name.c_str());
+    return ResultType::FAILURE;
+  }
 // DEPRECATED
 //===--------------------------------------------------------------------===//
 
