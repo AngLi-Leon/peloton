@@ -26,6 +26,7 @@
 #include "index/index_factory.h"
 #include "storage/storage_manager.h"
 #include "util/string_util.h"
+#include "executor/seq_scan_executor.h"
 
 namespace peloton {
 namespace catalog {
@@ -769,90 +770,91 @@ storage::DataTable *Catalog::GetTableWithName(const std::string &database_name,
 //===--------------------------------------------------------------------===//
 }
 
-/* Alter table: translate and copy an old table into a table with a new schema */
-ResultType Catalog::AlterTable(const std::string &database_name,
-                      const std::string &table_name,
-                      std::unique_ptr<catalog::Schema> schema,
+#ifdef ENABLE_ALTERTABLE
+
+/* Helper function for alter table, called internally
+ */
+ResultType AlterTable(oid_t database_oid, oid_t table_oid,
+                      std::unique_ptr<catalog::Schema> new_schema,
                       concurrency::Transaction *txn) {
-  if (txn == nullptr) {
-    LOG_TRACE("Do not have transaction to create table: %s",
-              table_name.c_str());
-    return ResultType::FAILURE;
-  }
-
-  LOG_TRACE("Creating table %s in database %s", table_name.c_str(),
-            database_name.c_str());
-  // get database oid from pg_database
-  oid_t database_oid =
-      DatabaseCatalog::GetInstance()->GetDatabaseOid(database_name, txn);
-  if (database_oid == INVALID_OID) {
-    LOG_TRACE("Cannot find the database %s in pg_db", database_name.c_str());
-    return ResultType::FAILURE;
-  }
-
-  // get table oid from pg_table
-  oid_t table_oid =
-      TableCatalog::GetInstance()->GetTableOid(table_name, database_oid, txn);
-  if (table_oid != INVALID_OID) {
-    LOG_TRACE("Cannot find the table %s in pg_table", table_name.c_str());
-    return ResultType::FAILURE;
-  }
-
+  if (txn == nullptr)
+    throw CatalogException("Alter table requires transaction");
   try {
     auto database = GetDatabaseWithOid(database_oid);
+    try {
+      auto old_table = database->GetTableWithOid(table_oid);
 
-    // Check duplicate column names
-    std::set<std::string> column_names;
-    auto columns = schema.get()->GetColumns();
+      // TODO: Try and grab table read lock
 
-    for (auto column : columns) {
-      auto column_name = column.GetName();
-      if (column_names.count(column_name) == 1) {
-        LOG_TRACE(
-            "Can't create table %s with duplicate column names. RESULT_FAILURE",
-            table_name.c_str());
-        return ResultType::FAILURE;
+      // Get empty table with new schema
+      bool own_schema = true;
+      bool adapt_table = false;
+      auto new_table = storage::TableFactory::GetDataTable(
+          database_oid, table_oid, new_schema.get(), table_name,
+          DEFAULT_TUPLES_PER_TILEGROUP, own_schema, adapt_table);
+
+      // Copy indexes
+      auto old_index_oids =
+          Catalog::IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
+      for (auto index_oid : old_index_oids) {
+        auto old_index = old_table->GetIndexWithOid(index_oid);
+        // TODO: Check if all indexed columns still exists
+
+        // Copy index to new table
+        auto index_metadata = new index::IndexMetadata(
+            old_index->GetName(), index_oid, table_oid, database_oid,
+            old_index->GetIndexType(), old_index->GetIndexConstraintType(),
+            new_schema, old_table->GetKeySchema(), old_table->GetKeyAttrs(),
+            old_table->HasUniqueKeys());
+
+        std::shared_ptr<index::Index> new_index(
+            index::IndexFactory::GetIndex(index_metadata));
+        new_table->AddIndex(new_index);
       }
-      column_names.insert(column_name);
+
+      // Get tuples from old table with sequential scan
+      std::unique_ptr<executor::ExecutorContext> context(
+          new executor::ExecutorContext(txn));
+
+      std::vector<oid_t> old_column_ids;  // TODO: insert all old column ids
+      planner::SeqScanPlan seq_scan_node(catalog_table_, predicate,
+                                         old_column_ids);
+      executor::SeqScanExecutor seq_scan_executor(&seq_scan_node,
+                                                  context.get());
+
+      seq_scan_executor.Init();
+      while (seq_scan_executor.Execute()) {
+        std::unique_ptr<executor::LogicalTile> result_tile(
+            seq_scan_executor.GetOutput());
+        for (int i = 0; i < result_tile->GetTupleCount(); i++) {
+          // Transform tuple into new schema
+          std::unique_ptr<storage::Tuple> tuple(
+              new storage::Tuple(new_schema, true));
+          // TODO: implement here transformation logic
+
+          planner::InsertPlan node(new_table, std::move(tuple));
+          executor::InsertExecutor executor(&node, context.get());
+          executor.Init();
+          executor.Execute();
+        }
+      }
+
+      // TODO: Final step of physical change should be moved to commit time
+      database->DropTableWithOid(table_oid);
+      database->AddTable(new_table);
+      // TODO: Release table lock, should be moved to commit time too
+    } catch (CatalogException &e) {
+      LOG_TRACE("Can't find table %s. Return RESULT_FAILURE",
+                table_name.c_str());
     }
-
-    auto pg_table = TableCatalog::GetInstance();
-    pg_table->DeleteTable(table_oid, txn);  // old schema only visible to previous Txns
-    // pg_attribute deletes?
-    // pg_index??
-
-
-    // actual alter table is implemented here..
-    // call some storage level methods...
-    // I will refine it after exam...
-    // We should not reuse executor here like seq_scan since they require txn and has visibility issues?
-    // So I think this must be a storage level function (we have to write scan and copy by ourself)!
-    // reference:
-    // https://github.com/postgres/postgres/blob/1d25779284fe1ba08ecd57e647292a9deb241376/src/include/commands/tablecmds.h
-    // https://github.com/postgres/postgres/blob/1d25779284fe1ba08ecd57e647292a9deb241376/src/backend/catalog/storage.c
-    database->AlterTableWithOid(table_oid, schema.release());
-
-
-    // Update pg_table with table info
-    pg_table->InsertTable(table_oid, table_name, database_oid, pool_.get(),
-                          txn);
-    oid_t column_id = 0;
-    for (auto column : schema->GetColumns()) {
-      ColumnCatalog::GetInstance()->InsertColumn(
-          table_oid, column.GetName(), column_id, column.GetOffset(),
-          column.GetType(), column.IsInlined(), column.GetConstraints(),
-          pool_.get(), txn);
-      column_id++;
-    }
-
-    CreatePrimaryIndex(database_oid, table_oid, txn);
-
-    return ResultType::SUCCESS;
   } catch (CatalogException &e) {
     LOG_TRACE("Can't found database %s. Return RESULT_FAILURE",
               database_name.c_str());
     return ResultType::FAILURE;
   }
+  return ResultType::SUCCESS;
+
+#endif
 // DEPRECATED
 //===--------------------------------------------------------------------===//
 

@@ -50,8 +50,6 @@ class Database : public Printable {
 
   void AddTable(storage::DataTable *table, bool is_catalog = false);
 
-  void AlterTableWithOid(const oid_t table_oid, catalog::Schema *schema);
-
   storage::DataTable *GetTable(const oid_t table_offset) const;
 
   // Throw CatalogException if such table is not found

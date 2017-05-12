@@ -38,6 +38,8 @@ class DataTable;
 
 namespace catalog {
 
+// #define ENABLE_ALTERTABLE
+
 //===--------------------------------------------------------------------===//
 // Catalog
 //===--------------------------------------------------------------------===//
@@ -142,13 +144,24 @@ class Catalog {
   //===--------------------------------------------------------------------===//
   // DEPRECATED FUNCTIONs
 
-  //===--------------------------------------------------------------------===//
-  // ALTER TABLE
-  //===--------------------------------------------------------------------===//
-  ResultType AlterTable(const std::string &database_name,
+//===--------------------------------------------------------------------===//
+// ALTER TABLE
+//===--------------------------------------------------------------------===//
+#ifdef ENABLE_ALTERTABLE
+  ResultType AddColumn(const std::string &database_name,
+                       const std::string &table_name,
+                       const std::vector<Column> &columns,
+                       concurrency::Transaction *txn);
+
+  ResultType DropColumn(const std::string &database_name,
                         const std::string &table_name,
-                        std::unique_ptr<catalog::Schema> schema,
+                        const std::vector<Column> &columns,
                         concurrency::Transaction *txn);
+
+  ResultType CopyTableToSchema(oid_t database_oid, oid_t table_oid,
+                               std::unique_ptr<catalog::Schema> schema,
+                               concurrency::Transaction *txn);
+#endif
   //===--------------------------------------------------------------------===//
   /*
   * We're working right now to remove metadata from storage level and eliminate
