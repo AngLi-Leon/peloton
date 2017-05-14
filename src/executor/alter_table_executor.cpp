@@ -42,8 +42,8 @@ bool AlterTableExecutor::DExecute() {
 
   // Check if query was for creating table
   switch (node.GetAlterTableType()) {
-    case CreateType::ADDCOLUMN:
-    case CreateType::DROPCOLUMN:
+    case AlterTableType::AT_AddColumn:
+    case AlterTableType::AT_DropColumn:
     default:
       LOG_DEBUG("Alter table type %d not implemented",
                 (int)node.GetAlterTableType());

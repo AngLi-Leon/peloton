@@ -31,10 +31,8 @@ class AlterTablePlan : public AbstractPlan {
  public:
   AlterTablePlan() = delete;
 
-  explicit AlterTablePlan(storage::DataTable *table);
-
-  explicit AlterTablePlan(std::string name, std::string database_name,
-                          std::unique_ptr<catalog::Schema> schema,
+  explicit AlterTablePlan(std::string &database_name, std::string &table_name,
+                          std::unique_ptr<catalog::Column> schema_delta,
                           AlterTableType c_type);
 
   // explicit AlterTablePlan(parser::AlterTableStatement *parse_tree);
@@ -48,8 +46,6 @@ class AlterTablePlan : public AbstractPlan {
   std::unique_ptr<AbstractPlan> Copy() const {
     return std::unique_ptr<AbstractPlan>(new AlterTablePlan(target_table_));
   }
-
-  std::string GetIndexName() const { return index_name; }
 
   std::string GetTableName() const { return table_name; }
 
@@ -76,22 +72,10 @@ class AlterTablePlan : public AbstractPlan {
   std::string database_name;
 
   // Table Schema
-  catalog::Schema *table_schema;
-
-  // Index attributes
-  std::vector<std::string> index_attrs;
+  catalog::Column *schema_delta;
 
   // Check to either AlterTable Table or INDEX
   AlterTableType AlterTable_type;
-
-  // IndexName
-  std::string index_name;
-
-  // Index Tyoe specified from parser (Default: SKIPLIST)
-  IndexType index_type;
-
-  // UNIQUE INDEX flag
-  bool unique;
 
  private:
   DISALLOW_COPY_AND_MOVE(AlterTablePlan);
