@@ -802,9 +802,9 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
         // Check if all indexed columns still exists
         for (oid_t column_id : old_index->GetKeyAttrs()) {
           bool is_found = false;
-          auto column_name = old_schema->GetColumn(column_id)->GetName();
+          auto column_name = old_schema->GetColumn(column_id).GetName();
           for (auto new_column : new_schema->GetColumns()) {
-            if (column_name == new_column->GetName()) {
+            if (column_name == new_column.GetName()) {
               is_found = true;
               break;
             }
