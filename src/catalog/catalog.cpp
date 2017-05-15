@@ -14,19 +14,19 @@
 #include <iostream>
 
 #include "catalog/database_metrics_catalog.h"
+#include "catalog/index_metrics_catalog.h"
 #include "catalog/manager.h"
 #include "catalog/query_metrics_catalog.h"
 #include "catalog/table_metrics_catalog.h"
-#include "catalog/index_metrics_catalog.h"
 #include "common/exception.h"
 #include "common/macros.h"
+#include "executor/seq_scan_executor.h"
 #include "expression/date_functions.h"
-#include "expression/string_functions.h"
 #include "expression/decimal_functions.h"
+#include "expression/string_functions.h"
 #include "index/index_factory.h"
 #include "storage/storage_manager.h"
 #include "util/string_util.h"
-#include "executor/seq_scan_executor.h"
 
 namespace peloton {
 namespace catalog {
@@ -783,7 +783,7 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
     auto database = GetDatabaseWithOid(database_oid);
     try {
       auto old_table = database->GetTableWithOid(table_oid);
-
+      auto old_schema = old_table->GetSchema();
       // TODO: Try and grab table read lock
 
       // Get empty table with new schema
@@ -798,7 +798,23 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
           Catalog::IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
       for (auto index_oid : old_index_oids) {
         auto old_index = old_table->GetIndexWithOid(index_oid);
-        // TODO: Check if all indexed columns still exists
+        bool index_exist = true;
+        // Check if all indexed columns still exists
+        for (oid_t column_id : old_index->GetKeyAttrs()) {
+          bool is_found = false;
+          auto column_name = old_schema->GetColumn(column_id)->GetName();
+          for (auto new_column : new_schema->GetColumns()) {
+            if (column_name == new_column->GetName()) {
+              is_found = true;
+              break;
+            }
+          }
+          if (!is_found) {
+            index_exist = false;
+            break;
+          }
+        }
+        if (!index_exist) continue;
 
         // Copy index to new table
         auto index_metadata = new index::IndexMetadata(
