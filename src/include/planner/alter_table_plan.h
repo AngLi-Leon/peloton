@@ -33,12 +33,11 @@ class AlterTablePlan : public AbstractPlan {
 
   explicit AlterTablePlan(std::string &database_name, std::string &table_name,
                           std::unique_ptr<catalog::Schema> schema_delta,
-                          AlterTableType c_type) {
-    this->table_name = table_name;
-    this->database_name = database_name;
-    this->schema_delta = schema_delta.release();
-    AlterTable_type = c_type;
-  }
+                          AlterTableType c_type)
+      : table_name(table_name),
+        database_name(database_name),
+        schema_delta(schema_delta.release()),
+        altertable_type(c_type) {}
 
   // explicit AlterTablePlan(parser::AlterTableStatement *parse_tree);
 
@@ -80,7 +79,7 @@ class AlterTablePlan : public AbstractPlan {
   catalog::Schema *schema_delta;
 
   // Check to either AlterTable Table or INDEX
-  AlterTableType AlterTable_type;
+  AlterTableType altertable_type;
 
  private:
   DISALLOW_COPY_AND_MOVE(AlterTablePlan);
