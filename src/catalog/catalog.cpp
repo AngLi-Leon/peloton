@@ -829,10 +829,24 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
       }
 
       // Get tuples from old table with sequential scan
+      // TODO: Try to reuse Sequential scan function and insert function in
+      // abstract catalog
       std::unique_ptr<executor::ExecutorContext> context(
           new executor::ExecutorContext(txn));
 
-      std::vector<oid_t> old_column_ids;  // TODO: insert all old column ids
+      std::vector<oid_t> old_column_ids;
+      std::unordered_map<oid_t, oid_t> column_map;
+      for (oid_t old_column_id = 0;
+           old_column_id < old_schema->GetColumnCount(); old_column_id++) {
+        old_column_ids.push_back(old_column_id);
+        for (oid_t new_column_id = 0;
+             new_column_id < new_schema->GetColumnCount(); new_column_id++) {
+          if (old_schema->GetColumn(old_column_id).GetName() ==
+              new_schema->GetColumn(new_column_id).GetName()) {
+            column_map[new_column_id] = old_column_id;
+          }
+        }
+      }
       planner::SeqScanPlan seq_scan_node(catalog_table_, predicate,
                                          old_column_ids);
       executor::SeqScanExecutor seq_scan_executor(&seq_scan_node,
@@ -846,7 +860,20 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
           // Transform tuple into new schema
           std::unique_ptr<storage::Tuple> tuple(
               new storage::Tuple(new_schema, true));
-          // TODO: implement here transformation logic
+
+          for (oid_t new_column_id = 0;
+               new_column_id < new_schema->GetColumnCount(); new_column_id++) {
+            auto it = column_map.find(new_column_id);
+            type::Value val;
+            if (it == column_map.end()) {
+              // new column
+              val = type::ValueFactory::GetNullValueByType(
+                  new_schema->GetColumn(new_column_id).GetType());
+            } else {
+              val = result_tile->GetValue(i, it->second);
+            }
+            tuple->SetValue(new_column_id, val, nullptr);
+          }
 
           planner::InsertPlan node(new_table, std::move(tuple));
           executor::InsertExecutor executor(&node, context.get());

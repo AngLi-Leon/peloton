@@ -38,7 +38,7 @@ class DataTable;
 
 namespace catalog {
 
-// #define ENABLE_ALTERTABLE
+#define ENABLE_ALTERTABLE
 
 //===--------------------------------------------------------------------===//
 // Catalog

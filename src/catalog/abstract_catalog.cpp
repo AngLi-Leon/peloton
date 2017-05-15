@@ -190,6 +190,8 @@ AbstractCatalog::GetResultWithIndexScan(std::vector<oid_t> column_offsets,
 *
 * @return  Unique pointer of vector of logical tiles
 */
+// TODO: Move this and GetResultWithIndexScan into catalog utility, and remove
+// duplicate code. This is also used in Catalog::AlterTable.
 std::unique_ptr<std::vector<std::unique_ptr<executor::LogicalTile>>>
 AbstractCatalog::GetResultWithSeqScan(std::vector<oid_t> column_offsets,
                                       expression::AbstractExpression *predicate,
