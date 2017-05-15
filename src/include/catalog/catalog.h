@@ -148,19 +148,9 @@ class Catalog {
 // ALTER TABLE
 //===--------------------------------------------------------------------===//
 #ifdef ENABLE_ALTERTABLE
-  ResultType AddColumn(const std::string &database_name,
-                       const std::string &table_name,
-                       const std::vector<Column> &columns,
-                       concurrency::Transaction *txn);
-
-  ResultType DropColumn(const std::string &database_name,
-                        const std::string &table_name,
-                        const std::vector<Column> &columns,
+  ResultType AlterTable(oid_t database_oid, oid_t table_oid,
+                        std::unique_ptr<catalog::Schema> new_schema,
                         concurrency::Transaction *txn);
-
-  ResultType CopyTableToSchema(oid_t database_oid, oid_t table_oid,
-                               std::unique_ptr<catalog::Schema> schema,
-                               concurrency::Transaction *txn);
 #endif
   //===--------------------------------------------------------------------===//
   /*

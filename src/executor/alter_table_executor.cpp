@@ -43,74 +43,71 @@ bool AlterTableExecutor::DExecute() {
   // Get old schema
   try {
     auto old_table = catalog::Catalog::GetInstance()->GetTableWithName(
-        node->GetDatabaseName(), node->GetTableName(), current_txn);
+        node.GetDatabaseName(), node.GetTableName(), current_txn);
     auto old_schema = old_table->GetSchema();
 
     // Check which type of alter table it is
-    switch (node.GetAlterTableType()) {
+    if (node.GetAlterTableType() == AlterTableType::ADDCOLUMN) {
       /*
        * ADD COLUMN
        */
-      case AlterTableType::AT_AddColumn:
-        // Check if column already exists
-        for (auto new_column : node->GetSchemaDelta()->GetColumns()) {
-          for (auto old_column : old_schema->GetColumns()) {
-            if (new_column.GetName() == old_column.GetName()) {
-              LOG_TRACE("Add Column FAILURE: Column %s already exists",
-                        new_column.GetName().c_str());
-              return false;
-            }
+      // Check if column already exists
+      for (auto new_column : node.GetSchemaDelta()->GetColumns()) {
+        for (auto old_column : old_schema->GetColumns()) {
+          if (new_column.GetName() == old_column.GetName()) {
+            LOG_TRACE("Add Column FAILURE: Column %s already exists",
+                      new_column.GetName().c_str());
+            return false;
           }
         }
+      }
 
-        // Construct new schema
-        auto new_schema =
-            catalog::Schema::AppendSchema(old_schema, node->GetSchemaDelta());
+      // Construct new schema
+      std::unique_ptr<catalog::Schema> new_schema(
+          catalog::Schema::AppendSchema(old_schema, node.GetSchemaDelta()));
 
-        // Copy and replace table content to new schema
-        auto result = catalog::Catalog->GetInstance()->AlterTable(
-            old_table->GetDatabaseOid(), old_table->GetOid(), new_schema,
-            current_txn);
-        return (result == ResultType::SUCCESS);
-
+      // Copy and replace table content to new schema
+      auto result = catalog::Catalog::GetInstance()->AlterTable(
+          old_table->GetDatabaseOid(), old_table->GetOid(),
+          std::move(new_schema), current_txn);
+      return (result == ResultType::SUCCESS);
+    } else if (node.GetAlterTableType() == AlterTableType::DROPCOLUMN) {
       /*
        * DROP COLUMN
        */
-      case AlterTableType::AT_DropColumn:
-        // Check if dropped column exists
-        std::set<oid_t> drop_column_ids;
-        for (auto drop_column : node->GetSchemaDelta()->GetColumns()) {
-          oid_t drop_column_id =
-              catalog::ColumnCatalog::GetInstance()->GetColumnId(
-                  old_table->GetOid(), drop_column.GetName(), txn);
-          if (drop_column_id == INVALID_OID) {
-            LOG_TRACE("Drop Column FAILURE: Column %s does not exist",
-                      drop_column.GetName().c_str());
-            return false;
-          } else {
-            drop_column_ids.insert(drop_column_id);
-          }
+      // Check if dropped column exists
+      std::set<oid_t> drop_column_ids;
+      for (auto drop_column : node.GetSchemaDelta()->GetColumns()) {
+        oid_t drop_column_id =
+            catalog::ColumnCatalog::GetInstance()->GetColumnId(
+                old_table->GetOid(), drop_column.GetName(), current_txn);
+        if (drop_column_id == INVALID_OID) {
+          LOG_TRACE("Drop Column FAILURE: Column %s does not exist",
+                    drop_column.GetName().c_str());
+          return false;
+        } else {
+          drop_column_ids.insert(drop_column_id);
         }
+      }
 
-        // Construct new schema
-        std::vector<oid_t> new_column_ids;
-        for (oid_t i = 0; i < old_schema->GetColumnCount(); i++) {
-          if (drop_column_ids.find(i) == drop_column_ids.end()) {
-            new_column_ids.push_back(i);
-          }
+      // Construct new schema
+      std::vector<oid_t> new_column_ids;
+      for (oid_t i = 0; i < old_schema->GetColumnCount(); i++) {
+        if (drop_column_ids.find(i) == drop_column_ids.end()) {
+          new_column_ids.push_back(i);
         }
-        auto new_schema =
-            catalog::Schema::CopySchema(old_schema, new_column_ids);
+      }
+      std::unique_ptr<catalog::Schema> new_schema(
+          catalog::Schema::CopySchema(old_schema, new_column_ids));
 
-        // Copy and replace table content to new schema
-        auto result = catalog::Catalog->GetInstance()->AlterTable(
-            old_table->GetDatabaseOid(), old_table->GetOid(), new_schema,
-            current_txn);
-        return (result == ResultType::SUCCESS);
-
-      default:
-        LOG_DEBUG("Alter table type %d not implemented",
-                  (int)node.GetAlterTableType());
+      // Copy and replace table content to new schema
+      auto result = catalog::Catalog::GetInstance()->AlterTable(
+          old_table->GetDatabaseOid(), old_table->GetOid(),
+          std::move(new_schema), current_txn);
+      return (result == ResultType::SUCCESS);
+    } else {
+      LOG_DEBUG("Alter table type %d not implemented",
+                (int)node.GetAlterTableType());
     }
 
     if (current_txn->GetResult() == ResultType::SUCCESS) {

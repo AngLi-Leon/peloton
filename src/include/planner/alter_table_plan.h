@@ -31,6 +31,9 @@ class AlterTablePlan : public AbstractPlan {
  public:
   AlterTablePlan() = delete;
 
+  // explicit AlterTablePlan(storage::DataTable *table)
+  //     : target_table_(table), schema_delta(nullptr);
+
   explicit AlterTablePlan(std::string &database_name, std::string &table_name,
                           std::unique_ptr<catalog::Schema> schema_delta,
                           AlterTableType c_type)
@@ -42,14 +45,14 @@ class AlterTablePlan : public AbstractPlan {
   // explicit AlterTablePlan(parser::AlterTableStatement *parse_tree);
 
   inline PlanNodeType GetPlanNodeType() const {
-    return PlanNodeType::AlterTable;
+    return PlanNodeType::ALTER_TABLE;
   }
 
   const std::string GetInfo() const { return "AlterTable Plan"; }
 
-  std::unique_ptr<AbstractPlan> Copy() const {
-    return std::unique_ptr<AbstractPlan>(new AlterTablePlan(target_table_));
-  }
+  // std::unique_ptr<AbstractPlan> Copy() const {
+  //   return std::unique_ptr<AbstractPlan>(new AlterTablePlan(target_table_));
+  // }
 
   std::string GetTableName() const { return table_name; }
 
@@ -57,13 +60,7 @@ class AlterTablePlan : public AbstractPlan {
 
   catalog::Schema *GetSchemaDelta() const { return schema_delta; }
 
-  AlterTableType GetAlterTableType() const { return AlterTable_type; }
-
-  bool IsUnique() const { return unique; }
-
-  IndexType GetIndexType() const { return index_type; }
-
-  std::vector<std::string> GetIndexAttributes() const { return index_attrs; }
+  AlterTableType GetAlterTableType() const { return altertable_type; }
 
  private:
   // Target Table

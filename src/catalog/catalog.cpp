@@ -774,9 +774,9 @@ storage::DataTable *Catalog::GetTableWithName(const std::string &database_name,
 
 /* Helper function for alter table, called internally
  */
-ResultType AlterTable(oid_t database_oid, oid_t table_oid,
-                      std::unique_ptr<catalog::Schema> new_schema,
-                      concurrency::Transaction *txn) {
+ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
+                               std::unique_ptr<catalog::Schema> new_schema,
+                               concurrency::Transaction *txn) {
   if (txn == nullptr)
     throw CatalogException("Alter table requires transaction");
   try {
@@ -790,17 +790,17 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
       bool own_schema = true;
       bool adapt_table = false;
       auto new_table = storage::TableFactory::GetDataTable(
-          database_oid, table_oid, new_schema.get(), table_name,
+          database_oid, table_oid, new_schema.get(), old_table->GetName(),
           DEFAULT_TUPLES_PER_TILEGROUP, own_schema, adapt_table);
 
       // Copy indexes
       auto old_index_oids =
-          Catalog::IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
+          IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
       for (auto index_oid : old_index_oids) {
         auto old_index = old_table->GetIndexWithOid(index_oid);
         bool index_exist = true;
         // Check if all indexed columns still exists
-        for (oid_t column_id : old_index->GetKeyAttrs()) {
+        for (oid_t column_id : old_index->GetMetadata()->GetKeyAttrs()) {
           bool is_found = false;
           auto column_name = old_schema->GetColumn(column_id).GetName();
           for (auto new_column : new_schema->GetColumns()) {
@@ -819,9 +819,11 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
         // Copy index to new table
         auto index_metadata = new index::IndexMetadata(
             old_index->GetName(), index_oid, table_oid, database_oid,
-            old_index->GetIndexType(), old_index->GetIndexConstraintType(),
-            new_schema, old_table->GetKeySchema(), old_table->GetKeyAttrs(),
-            old_table->HasUniqueKeys());
+            old_index->GetMetadata()->GetIndexType(),
+            old_index->GetMetadata()->GetIndexConstraintType(),
+            new_schema.get(), old_index->GetKeySchema(),
+            old_index->GetMetadata()->GetKeyAttrs(),
+            old_index->HasUniqueKeys());
 
         std::shared_ptr<index::Index> new_index(
             index::IndexFactory::GetIndex(index_metadata));
@@ -847,8 +849,7 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
           }
         }
       }
-      planner::SeqScanPlan seq_scan_node(catalog_table_, predicate,
-                                         old_column_ids);
+      planner::SeqScanPlan seq_scan_node(old_table, nullptr, old_column_ids);
       executor::SeqScanExecutor seq_scan_executor(&seq_scan_node,
                                                   context.get());
 
@@ -856,10 +857,10 @@ ResultType AlterTable(oid_t database_oid, oid_t table_oid,
       while (seq_scan_executor.Execute()) {
         std::unique_ptr<executor::LogicalTile> result_tile(
             seq_scan_executor.GetOutput());
-        for (int i = 0; i < result_tile->GetTupleCount(); i++) {
+        for (size_t i = 0; i < result_tile->GetTupleCount(); i++) {
           // Transform tuple into new schema
           std::unique_ptr<storage::Tuple> tuple(
-              new storage::Tuple(new_schema, true));
+              new storage::Tuple(new_schema.get(), true));
 
           for (oid_t new_column_id = 0;
                new_column_id < new_schema->GetColumnCount(); new_column_id++) {

@@ -92,7 +92,7 @@ extern int TEST_TUPLES_PER_TILEGROUP;
 enum class PostgresValueType {
   INVALID = INVALID_TYPE_ID,
   BOOLEAN = 16,
-  TINYINT = 16, // BOOLEAN is an alias for TINYINT
+  TINYINT = 16,  // BOOLEAN is an alias for TINYINT
   SMALLINT = 21,
   INTEGER = 23,
   VARBINARY = 17,
@@ -601,6 +601,7 @@ enum class PlanNodeType {
   CREATE = 34,
   POPULATE_INDEX = 35,
   ANALYZE = 36,
+  ALTER_TABLE = 37,
 
   // Communication Nodes
   SEND = 40,
@@ -641,6 +642,16 @@ enum class CreateType {
   TABLE = 2,                  // table create type
   INDEX = 3,                  // index create type
   CONSTRAINT = 4              // constraint create type
+};
+
+//===--------------------------------------------------------------------===//
+// Alter Table Types
+//===--------------------------------------------------------------------===//
+
+enum class AlterTableType {
+  INVALID = INVALID_TYPE_ID,  // invalid alter type
+  ADDCOLUMN = 1,              // add column type
+  DROPCOLUMN = 2              // drop column type
 };
 
 //===--------------------------------------------------------------------===//
