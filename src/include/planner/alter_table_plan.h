@@ -32,8 +32,13 @@ class AlterTablePlan : public AbstractPlan {
   AlterTablePlan() = delete;
 
   explicit AlterTablePlan(std::string &database_name, std::string &table_name,
-                          std::unique_ptr<catalog::Column> schema_delta,
-                          AlterTableType c_type);
+                          std::unique_ptr<catalog::Schema> schema_delta,
+                          AlterTableType c_type) {
+    this->table_name = table_name;
+    this->database_name = database_name;
+    this->schema_delta = schema_delta.release();
+    AlterTable_type = c_type;
+  }
 
   // explicit AlterTablePlan(parser::AlterTableStatement *parse_tree);
 
@@ -51,7 +56,7 @@ class AlterTablePlan : public AbstractPlan {
 
   std::string GetDatabaseName() const { return database_name; }
 
-  catalog::Schema *GetSchema() const { return table_schema; }
+  catalog::Schema *GetSchemaDelta() const { return schema_delta; }
 
   AlterTableType GetAlterTableType() const { return AlterTable_type; }
 
@@ -71,8 +76,8 @@ class AlterTablePlan : public AbstractPlan {
   // Database Name
   std::string database_name;
 
-  // Table Schema
-  catalog::Column *schema_delta;
+  // Schema delta, define the column txn want to add/delete
+  catalog::Schema *schema_delta;
 
   // Check to either AlterTable Table or INDEX
   AlterTableType AlterTable_type;
