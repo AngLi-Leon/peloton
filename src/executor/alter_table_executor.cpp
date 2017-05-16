@@ -70,7 +70,7 @@ bool AlterTableExecutor::DExecute() {
       auto result = catalog::Catalog::GetInstance()->AlterTable(
           old_table->GetDatabaseOid(), old_table->GetOid(),
           std::move(new_schema), current_txn);
-      return (result == ResultType::SUCCESS);
+      current_txn->SetResult(result);
     } else if (node.GetAlterTableType() == AlterTableType::DROPCOLUMN) {
       /*
        * DROP COLUMN
@@ -104,9 +104,9 @@ bool AlterTableExecutor::DExecute() {
       auto result = catalog::Catalog::GetInstance()->AlterTable(
           old_table->GetDatabaseOid(), old_table->GetOid(),
           std::move(new_schema), current_txn);
-      return (result == ResultType::SUCCESS);
+      current_txn->SetResult(result);
     } else {
-      LOG_DEBUG("Alter table type %d not implemented",
+      LOG_TRACE("Alter table type %d not implemented",
                 (int)node.GetAlterTableType());
     }
 
@@ -119,8 +119,8 @@ bool AlterTableExecutor::DExecute() {
                 ResultTypeToString(current_txn->GetResult()).c_str());
     }
   } catch (CatalogException &e) {
-    LOG_TRACE("Can't found database %s. Return RESULT_FAILURE",
-              database_name.c_str());
+    LOG_TRACE("Can't found table %s. Return RESULT_FAILURE",
+              node.GetTableName().c_str());
     return false;
   }
   return false;

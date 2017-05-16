@@ -790,7 +790,8 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
       bool own_schema = true;
       bool adapt_table = false;
       auto new_table = storage::TableFactory::GetDataTable(
-          database_oid, table_oid, new_schema.get(), old_table->GetName(),
+          database_oid, table_oid,
+          catalog::Schema::CopySchema(new_schema.get()), old_table->GetName(),
           DEFAULT_TUPLES_PER_TILEGROUP, own_schema, adapt_table);
 
       // Copy indexes
@@ -821,7 +822,8 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             old_index->GetName(), index_oid, table_oid, database_oid,
             old_index->GetMetadata()->GetIndexType(),
             old_index->GetMetadata()->GetIndexConstraintType(),
-            new_schema.get(), old_index->GetKeySchema(),
+            new_schema.get(),
+            catalog::Schema::CopySchema(old_index->GetKeySchema()),
             old_index->GetMetadata()->GetKeyAttrs(),
             old_index->GetMetadata()->HasUniqueKeys());
 
@@ -884,8 +886,10 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
         }
       }
       // TODO: Final step of physical change should be moved to commit time
-      database->DropTableWithOid(table_oid);
-      database->AddTable(new_table);
+      // database->DropTableWithOid(table_oid);
+      // database->AddTable(new_table);
+      database->ReplaceTableWithOid(table_oid, new_table);
+      txn->RecordDropedTable(old_table);
       // TODO: Release table lock, should be moved to commit time too
     } catch (CatalogException &e) {
       LOG_TRACE("Can't find table %s. Return RESULT_FAILURE",

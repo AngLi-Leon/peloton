@@ -83,6 +83,7 @@ void TimestampOrderingTransactionManager::InitTupleReserved(
   *(cid_t *)(reserved_area + LAST_READER_OFFSET) = 0;
 }
 
+    const size_t thread_id) {
 TimestampOrderingTransactionManager &
 TimestampOrderingTransactionManager::GetInstance(
       const ProtocolType protocol,
@@ -578,7 +579,6 @@ void TimestampOrderingTransactionManager::PerformUpdate(
         tile_group_header->GetIndirection(old_location.offset);
 
     if (index_entry_ptr != nullptr) {
-
       new_tile_group_header->SetIndirection(new_location.offset,
                                             index_entry_ptr);
 
@@ -874,7 +874,8 @@ ResultType TimestampOrderingTransactionManager::CommitTransaction(
         // we require the GC to delete tuple from index only once.
         // recycle old version, delete from index
         gc_set->operator[](tile_group_id)[tuple_slot] = true;
-        // recycle new version (which is an empty version), do not delete from index
+        // recycle new version (which is an empty version), do not delete from
+        // index
         gc_set->operator[](new_version.block)[new_version.offset] = false;
 
         log_manager.LogDelete(ItemPointer(tile_group_id, tuple_slot));
@@ -914,6 +915,10 @@ ResultType TimestampOrderingTransactionManager::CommitTransaction(
         // no log is needed for this case
       }
     }
+  }
+
+  for (auto table : current_txn->GetDroppedTables()) {
+    delete table;
   }
 
   ResultType result = current_txn->GetResult();
