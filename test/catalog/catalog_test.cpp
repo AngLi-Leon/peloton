@@ -146,6 +146,58 @@ TEST_F(CatalogTests, CreatingTable) {
   //           72);
 }
 
+TEST_F(CatalogTests, AlteringTable) {
+  auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+  auto txn = txn_manager.BeginTransaction();
+  // first step: insert tuple into old table
+  std::unique_ptr<type::AbstractPool> pool(new type::EphemeralPool());
+  auto old_table = catalog::Catalog::GetInstance()
+                       ->GetDatabaseWithName("EMP_DB")
+                       ->GetTableWithName("department_table");
+
+  std::unique_ptr<storage::Tuple> tuple(
+      new storage::Tuple(old_table->GetSchema(), true));
+
+  auto val0 = type::ValueFactory::GetIntegerValue(1234);
+  std::string temp_name = "Engineering";
+  auto val1 = type::ValueFactory::GetVarcharValue(temp_name, pool.get());
+
+  tuple->SetValue(0, val0, pool.get());
+  tuple->SetValue(1, val1, pool.get());
+
+  std::unique_ptr<executor::ExecutorContext> context(
+      new executor::ExecutorContext(txn));
+  planner::InsertPlan node(old_table, std::move(tuple));
+  executor::InsertExecutor executor(&node, context.get());
+  executor.Init();
+  bool status = executor.Execute();
+  EXPECT_EQ(status, true);
+  EXPECT_EQ(old_table->GetTupleCount(), 1);
+
+  // second step alter table: add a new column
+  auto id_column =
+      catalog::Column(type::Type::INTEGER,
+                      type::Type::GetTypeSize(type::Type::INTEGER), "id", true);
+  auto name_column = catalog::Column(type::Type::VARCHAR, 32, "name", false);
+  auto new_column = catalog::Column(
+      type::Type::BOOLEAN, type::Type::GetTypeSize(type::Type::BOOLEAN),
+      "new_column", true);
+  std::unique_ptr<catalog::Schema> new_schema(
+      new catalog::Schema({id_column, name_column, new_column}));
+  oid_t database_oid =
+      catalog::Catalog::GetInstance()->GetDatabaseWithName("EMP_DB")->GetOid();
+
+  catalog::Catalog::GetInstance()->AlterTable(database_oid, old_table->GetOid(),
+                                              std::move(new_schema), txn);
+
+  EXPECT_EQ(catalog::Catalog::GetInstance()
+                ->GetDatabaseWithName("EMP_DB")
+                ->GetTableWithName("department_table")
+                ->GetTupleCount(),
+            1);
+  txn_manager.CommitTransaction(txn);
+}
+
 TEST_F(CatalogTests, DroppingTable) {
   EXPECT_EQ(catalog::Catalog::GetInstance()
                 ->GetDatabaseWithName("EMP_DB")

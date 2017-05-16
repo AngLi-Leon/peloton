@@ -24,8 +24,8 @@
 #include "expression/date_functions.h"
 #include "expression/decimal_functions.h"
 #include "expression/string_functions.h"
-#include "index/index_factory.h"
 #include "storage/storage_manager.h"
+#include "index/index_factory.h"
 #include "util/string_util.h"
 
 namespace peloton {
@@ -802,7 +802,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
         // Check if all indexed columns still exists
         for (oid_t column_id : old_index->GetMetadata()->GetKeyAttrs()) {
           bool is_found = false;
-          auto column_name = old_schema->GetColumn(column_id).GetName();
+          std::string column_name = old_schema->GetColumn(column_id).GetName();
           for (auto new_column : new_schema->GetColumns()) {
             if (column_name == new_column.GetName()) {
               is_found = true;
@@ -823,7 +823,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             old_index->GetMetadata()->GetIndexConstraintType(),
             new_schema.get(), old_index->GetKeySchema(),
             old_index->GetMetadata()->GetKeyAttrs(),
-            old_index->HasUniqueKeys());
+            old_index->GetMetadata()->HasUniqueKeys());
 
         std::shared_ptr<index::Index> new_index(
             index::IndexFactory::GetIndex(index_metadata));
@@ -854,6 +854,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
                                                   context.get());
 
       seq_scan_executor.Init();
+
       while (seq_scan_executor.Execute()) {
         std::unique_ptr<executor::LogicalTile> result_tile(
             seq_scan_executor.GetOutput());
@@ -875,14 +876,13 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             }
             tuple->SetValue(new_column_id, val, nullptr);
           }
-
+          // insert new tuple into new table
           planner::InsertPlan node(new_table, std::move(tuple));
           executor::InsertExecutor executor(&node, context.get());
           executor.Init();
           executor.Execute();
         }
       }
-
       // TODO: Final step of physical change should be moved to commit time
       database->DropTableWithOid(table_oid);
       database->AddTable(new_table);
@@ -890,6 +890,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
     } catch (CatalogException &e) {
       LOG_TRACE("Can't find table %s. Return RESULT_FAILURE",
                 table_name.c_str());
+      return ResultType::FAILURE;
     }
   } catch (CatalogException &e) {
     LOG_TRACE("Can't found database %s. Return RESULT_FAILURE",
