@@ -875,7 +875,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             } else {
               val = result_tile->GetValue(i, it->second);
             }
-            tuple->SetValue(new_column_id, val, nullptr);
+            tuple->SetValue(new_column_id, val, pool_.get());
           }
           // insert new tuple into new table
           planner::InsertPlan node(new_table, std::move(tuple));
