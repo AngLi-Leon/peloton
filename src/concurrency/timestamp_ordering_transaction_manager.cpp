@@ -83,7 +83,6 @@ void TimestampOrderingTransactionManager::InitTupleReserved(
   *(cid_t *)(reserved_area + LAST_READER_OFFSET) = 0;
 }
 
-    const size_t thread_id) {
 TimestampOrderingTransactionManager &
 TimestampOrderingTransactionManager::GetInstance(
       const ProtocolType protocol,
@@ -980,8 +979,8 @@ ResultType TimestampOrderingTransactionManager::AbortTransaction(
 
         COMPILER_MEMORY_FENCE;
 
-        // as the aborted version has already been placed in the version chain,
-        // we need to unlink it by resetting the item pointers.
+        // as the aborted version has already been placed in the version
+        // chain, we need to unlink it by resetting the item pointers.
         auto old_prev =
             new_tile_group_header->GetPrevItemPointer(new_version.offset);
 
@@ -1037,8 +1036,8 @@ ResultType TimestampOrderingTransactionManager::AbortTransaction(
 
         COMPILER_MEMORY_FENCE;
 
-        // as the aborted version has already been placed in the version chain,
-        // we need to unlink it by resetting the item pointers.
+        // as the aborted version has already been placed in the version
+        // chain, we need to unlink it by resetting the item pointers.
         auto old_prev =
             new_tile_group_header->GetPrevItemPointer(new_version.offset);
 

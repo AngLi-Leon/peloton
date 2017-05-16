@@ -617,7 +617,7 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
     LOG_TRACE("Deleting table!");
     // STEP 1, read index_oids from pg_index, and iterate through
     auto index_oids = IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
-    LOG_TRACE("dropping #%d indexes", (int)index_oids.size());
+    LOG_INFO("dropping #%d indexes", (int)index_oids.size());
 
     for (oid_t index_oid : index_oids) DropIndex(index_oid, txn);
     // STEP 2
@@ -664,14 +664,13 @@ ResultType Catalog::DropIndex(oid_t index_oid, concurrency::Transaction *txn) {
     auto database = storage_manager->GetDatabaseWithOid(database_oid);
     try {
       auto table = database->GetTableWithOid(table_oid);
-      // drop index in actual table
-      table->DropIndexWithOid(index_oid);
-
       // drop record in pg_index
       IndexCatalog::GetInstance()->DeleteIndex(index_oid, txn);
 
-      LOG_TRACE("Successfully drop index %d for table %s", index_oid,
-                table->GetName().c_str());
+      LOG_INFO("Successfully drop index %d for table %s", index_oid,
+               table->GetName().c_str());
+      // drop index in actual table
+      table->DropIndexWithOid(index_oid);
 
       return ResultType::SUCCESS;
     } catch (CatalogException &e) {

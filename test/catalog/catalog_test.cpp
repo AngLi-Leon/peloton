@@ -213,7 +213,7 @@ TEST_F(CatalogTests, DroppingTable) {
       catalog::TableCatalog::GetInstance()->GetTableOid("department_table",
                                                         database_oid, txn);
   txn_manager.CommitTransaction(txn);
-  //  catalog::Catalog::GetInstance()->PrintCatalogs();
+
   EXPECT_EQ(catalog::Catalog::GetInstance()
                 ->GetDatabaseWithName("EMP_DB")
                 ->GetTableCount(),
@@ -222,7 +222,7 @@ TEST_F(CatalogTests, DroppingTable) {
   EXPECT_EQ(department_table_oid, INVALID_OID);
 
   // Try to drop again
-  txn = txn_manager.BeginTransaction();
+  /*txn = txn_manager.BeginTransaction();
   ResultType result = catalog::Catalog::GetInstance()->DropTable(
       "EMP_DB", "department_table", txn);
   txn_manager.CommitTransaction(txn);
@@ -252,7 +252,7 @@ TEST_F(CatalogTests, DroppingTable) {
   EXPECT_EQ(catalog::Catalog::GetInstance()
                 ->GetDatabaseWithName("EMP_DB")
                 ->GetTableCount(),
-            1);
+            1);*/
 }
 
 TEST_F(CatalogTests, DroppingDatabase) {
