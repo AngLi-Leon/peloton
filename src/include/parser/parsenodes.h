@@ -12,7 +12,7 @@
 
 #include "nodes.h"
 #include "pg_list.h"
-#include "types.h"
+#include "type/types.h"
 
 typedef enum SetOperation {
   SETOP_NONE = 0,
@@ -111,11 +111,11 @@ typedef struct RangeSubselect {
 
 typedef struct RangeVar {
   NodeTag type;
-  char *catalogname; /* the catalog (database) name, or NULL */
-  char *schemaname;  /* the schema name, or NULL */
-  char *relname;     /* the relation/sequence name */
-  InhOption inhOpt; /* expand rel by inheritance? recursively act
-       * on children? */
+  char *catalogname;   /* the catalog (database) name, or NULL */
+  char *schemaname;    /* the schema name, or NULL */
+  char *relname;       /* the relation/sequence name */
+  InhOption inhOpt;    /* expand rel by inheritance? recursively act
+          * on children? */
   char relpersistence; /* see RELPERSISTENCE_* in pg_class.h */
   Alias *alias;        /* table alias & optional column aliases */
   int location;        /* token location, or -1 if unknown */
@@ -308,10 +308,10 @@ typedef struct ColumnDef {
 
 typedef struct CreateStmt {
   NodeTag type;
-  RangeVar *relation; /* relation to create */
-  List *tableElts;    /* column definitions (list of ColumnDef) */
-  List *inhRelations; /* relations to inherit from (list of
-             * inhRelation) */
+  RangeVar *relation;      /* relation to create */
+  List *tableElts;         /* column definitions (list of ColumnDef) */
+  List *inhRelations;      /* relations to inherit from (list of
+                  * inhRelation) */
   TypeName *ofTypename;    /* OF typename */
   List *constraints;       /* constraints (list of Constraint nodes) */
   List *options;           /* options from WITH clause */
@@ -321,8 +321,8 @@ typedef struct CreateStmt {
 } CreateStmt;
 
 typedef enum ConstrType /* types of constraints */
-{ CONSTR_NULL, /* not standard SQL, but a lot of people
-                * expect it */
+{ CONSTR_NULL,          /* not standard SQL, but a lot of people
+                         * expect it */
   CONSTR_NOTNULL,
   CONSTR_DEFAULT,
   CONSTR_CHECK,
@@ -334,31 +334,6 @@ typedef enum ConstrType /* types of constraints */
   CONSTR_ATTR_NOT_DEFERRABLE,
   CONSTR_ATTR_DEFERRED,
   CONSTR_ATTR_IMMEDIATE } ConstrType;
-
-/* ----------------------
- *	Alter Table
- * ----------------------
- */
-typedef struct AlterTableStmt {
-  NodeTag type;
-  RangeVar *relation; /* table to work on */
-  List *cmds;         /* list of subcommands */
-  ObjectType relkind; /* type of object */
-  bool missing_ok;    /* skip error if table missing */
-} AlterTableStmt;
-
-typedef struct AlterTableCmd /* one subcommand of an ALTER TABLE */
-{
-  NodeTag type;
-  AlterTableType subtype; /* Type of table alteration to apply */
-  char *name; /* column, constraint, or trigger to act on,
-         * or tablespace */
-  Node *newowner; /* RoleSpec */
-  Node *def; /* definition of new column, index,
-        * constraint, or parent table */
-  DropBehavior behavior; /* RESTRICT or CASCADE for DROP cases */
-  bool missing_ok;       /* skip error if missing? */
-} AlterTableCmd;
 
 /* Foreign key action codes */
 #define FKCONSTR_ACTION_NOACTION 'a'
@@ -552,6 +527,97 @@ typedef enum DropBehavior {
   DROP_CASCADE   /* remove dependent objects too */
 } DropBehavior;
 
+/* ----------------------
+ *  Alter Table
+ * ----------------------
+ */
+
+typedef enum AlterTableType {
+  AT_AddColumn,                 /* add column */
+  AT_AddColumnRecurse,          /* internal to commands/tablecmds.c */
+  AT_AddColumnToView,           /* implicitly via CREATE OR REPLACE VIEW */
+  AT_ColumnDefault,             /* alter column default */
+  AT_DropNotNull,               /* alter column drop not null */
+  AT_SetNotNull,                /* alter column set not null */
+  AT_SetStatistics,             /* alter column set statistics */
+  AT_SetOptions,                /* alter column set ( options ) */
+  AT_ResetOptions,              /* alter column reset ( options ) */
+  AT_SetStorage,                /* alter column set storage */
+  AT_DropColumn,                /* drop column */
+  AT_DropColumnRecurse,         /* internal to commands/tablecmds.c */
+  AT_AddIndex,                  /* add index */
+  AT_ReAddIndex,                /* internal to commands/tablecmds.c */
+  AT_AddConstraint,             /* add constraint */
+  AT_AddConstraintRecurse,      /* internal to commands/tablecmds.c */
+  AT_ReAddConstraint,           /* internal to commands/tablecmds.c */
+  AT_AlterConstraint,           /* alter constraint */
+  AT_ValidateConstraint,        /* validate constraint */
+  AT_ValidateConstraintRecurse, /* internal to commands/tablecmds.c */
+  AT_ProcessedConstraint,       /* pre-processed add constraint (local in
+                     * parser/parse_utilcmd.c) */
+  AT_AddIndexConstraint,        /* add constraint using existing index */
+  AT_DropConstraint,            /* drop constraint */
+  AT_DropConstraintRecurse,     /* internal to commands/tablecmds.c */
+  AT_ReAddComment,              /* internal to commands/tablecmds.c */
+  AT_AlterColumnType,           /* alter column type */
+  AT_AlterColumnGenericOptions, /* alter column OPTIONS (...) */
+  AT_ChangeOwner,               /* change owner */
+  AT_ClusterOn,                 /* CLUSTER ON */
+  AT_DropCluster,               /* SET WITHOUT CLUSTER */
+  AT_SetLogged,                 /* SET LOGGED */
+  AT_SetUnLogged,               /* SET UNLOGGED */
+  AT_AddOids,                   /* SET WITH OIDS */
+  AT_AddOidsRecurse,            /* internal to commands/tablecmds.c */
+  AT_DropOids,                  /* SET WITHOUT OIDS */
+  AT_SetTableSpace,             /* SET TABLESPACE */
+  AT_SetRelOptions,             /* SET (...) -- AM specific parameters */
+  AT_ResetRelOptions,           /* RESET (...) -- AM specific parameters */
+  AT_ReplaceRelOptions,         /* replace reloption list in its entirety */
+  AT_EnableTrig,                /* ENABLE TRIGGER name */
+  AT_EnableAlwaysTrig,          /* ENABLE ALWAYS TRIGGER name */
+  AT_EnableReplicaTrig,         /* ENABLE REPLICA TRIGGER name */
+  AT_DisableTrig,               /* DISABLE TRIGGER name */
+  AT_EnableTrigAll,             /* ENABLE TRIGGER ALL */
+  AT_DisableTrigAll,            /* DISABLE TRIGGER ALL */
+  AT_EnableTrigUser,            /* ENABLE TRIGGER USER */
+  AT_DisableTrigUser,           /* DISABLE TRIGGER USER */
+  AT_EnableRule,                /* ENABLE RULE name */
+  AT_EnableAlwaysRule,          /* ENABLE ALWAYS RULE name */
+  AT_EnableReplicaRule,         /* ENABLE REPLICA RULE name */
+  AT_DisableRule,               /* DISABLE RULE name */
+  AT_AddInherit,                /* INHERIT parent */
+  AT_DropInherit,               /* NO INHERIT parent */
+  AT_AddOf,                     /* OF <type_name> */
+  AT_DropOf,                    /* NOT OF */
+  AT_ReplicaIdentity,           /* REPLICA IDENTITY */
+  AT_EnableRowSecurity,         /* ENABLE ROW SECURITY */
+  AT_DisableRowSecurity,        /* DISABLE ROW SECURITY */
+  AT_ForceRowSecurity,          /* FORCE ROW SECURITY */
+  AT_NoForceRowSecurity,        /* NO FORCE ROW SECURITY */
+  AT_GenericOptions             /* OPTIONS (...) */
+} AlterTableType;
+
+typedef struct AlterTableStmt {
+  NodeTag type;
+  RangeVar *relation; /* table to work on */
+  List *cmds;         /* list of subcommands */
+  ObjectType relkind; /* type of object */
+  bool missing_ok;    /* skip error if table missing */
+} AlterTableStmt;
+
+typedef struct AlterTableCmd /* one subcommand of an ALTER TABLE */
+    {
+  NodeTag type;
+  AlterTableType subtype; /* Type of table alteration to apply */
+  char *name;             /* column, constraint, or trigger to act on,
+                     * or tablespace */
+  Node *newowner;         /* RoleSpec */
+  Node *def;              /* definition of new column, index,
+                     * constraint, or parent table */
+  DropBehavior behavior;  /* RESTRICT or CASCADE for DROP cases */
+  bool missing_ok;        /* skip error if missing? */
+} AlterTableCmd;
+
 typedef struct DropStmt {
   NodeTag type;
   List *objects;         /* list of sublists of names (as Values) */
@@ -602,12 +668,12 @@ typedef struct CopyStmt {
   NodeTag type;
   RangeVar *relation; /* the relation to copy */
   Node *query;        /* the SELECT query to copy */
-  List *attlist; /* List of column names (as Strings), or NIL
-          * for all columns */
-  bool is_from;    /* TO or FROM */
-  bool is_program; /* is 'filename' a program to popen? */
-  char *filename;  /* filename, or NULL for STDIN/STDOUT */
-  List *options;   /* List of DefElem nodes */
+  List *attlist;      /* List of column names (as Strings), or NIL
+               * for all columns */
+  bool is_from;       /* TO or FROM */
+  bool is_program;    /* is 'filename' a program to popen? */
+  char *filename;     /* filename, or NULL for STDIN/STDOUT */
+  List *options;      /* List of DefElem nodes */
 } CopyStmt;
 
 typedef struct CreatedbStmt {
