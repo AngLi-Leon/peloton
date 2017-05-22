@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "executor/alter_table_executor.h"
-#include "executor/executor_context.h"
-#include "common/logger.h"
 #include "catalog/catalog.h"
+#include "common/logger.h"
+#include "executor/executor_context.h"
 
 #include <vector>
 
