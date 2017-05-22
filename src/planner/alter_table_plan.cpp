@@ -20,10 +20,10 @@
 namespace peloton {
 namespace planner {
 
-AlterTablePlan::AlterTablePlan(std::string &database_name,
-                               std::string &table_name,
+AlterTablePlan::AlterTablePlan(const std::string &database_name,
+                               const std::string &table_name,
                                std::unique_ptr<catalog::Schema> added_columns,
-                               std::vector<std::string> dropped_columns,
+                               const std::vector<std::string> &dropped_columns,
                                AlterTableType a_type)
     : table_name(table_name),
       database_name(database_name),
@@ -37,7 +37,7 @@ AlterTablePlan::AlterTablePlan(parser::AlterTableStatement *parse_tree) {
   altertable_type = parse_tree->type;
   std::vector<catalog::Column> columns;
   // case 1: add column(column name + column data type)
-  if (parse_tree->type == type::AlterTableType::COLUMN) {
+  if (parse_tree->type == AlterTableType::COLUMN) {
     // Add columns: traverse through vector of ColumnDefinition
     for (auto col : *parse_tree->columns) {
       type::Type::TypeId val = col->GetValueType(col->type);

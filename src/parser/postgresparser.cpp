@@ -963,7 +963,7 @@ parser::SQLStatement* PostgresParser::AlterTableTransform(
     AlterTableStmt* root) {
   // Currently we only support add/drop column type
   parser::AlterTableStatement* result =
-      new AlterTableStatement(type::AlterTableType::COLUMN);
+      new AlterTableStatement(AlterTableType::COLUMN);
 
   // Get database and table name
   RangeVar* relation = root->relation;
@@ -975,20 +975,22 @@ parser::SQLStatement* PostgresParser::AlterTableTransform(
     result->table_info_->database_name = cstrdup(relation->catalogname);
   }
 
-  for (auto cell = root->head; cell != NULL; cell = cell->next) {
+  for (auto cell = root->cmds->head; cell != NULL; cell = cell->next) {
     auto cmd = reinterpret_cast<AlterTableCmd*>(cell->data.ptr_value);
     switch (cmd->subtype) {
-      case AlterTableType::AT_AddColumn:
+      case AT_AddColumn: {
         auto column =
             ColumnDefTransform(reinterpret_cast<ColumnDef*>(cmd->def));
         result->columns->push_back(column);
         break;
-      case AlterTableType::AT_DropColumn:
+      }
+      case AT_DropColumn:
         result->names->push_back(cstrdup(cmd->name));
         break;
-      default:
+      default: {
         throw NotImplementedException(StringUtil::Format(
             "Alter Table type %d not supported yet...\n", cmd->subtype));
+      }
     }
   }
   return result;

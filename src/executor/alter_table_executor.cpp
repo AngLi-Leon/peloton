@@ -92,7 +92,7 @@ bool AlterTableExecutor::DExecute() {
 
       // Construct new schema
       std::unique_ptr<catalog::Schema> new_schema(catalog::Schema::AppendSchema(
-          temp_schema->get(), node.GetAddedColumns()));
+          temp_schema.get(), node.GetAddedColumns()));
 
       // Copy and replace table content to new schema
       auto result = catalog::Catalog::GetInstance()->AlterTable(
@@ -100,10 +100,6 @@ bool AlterTableExecutor::DExecute() {
           std::move(new_schema), current_txn);
       current_txn->SetResult(result);
 
-      // Copy and replace table content to new schema
-      auto result = catalog::Catalog::GetInstance()->AlterTable(
-          old_table->GetDatabaseOid(), old_table->GetOid(),
-          std::move(new_schema), current_txn);
       current_txn->SetResult(result);
     } else {
       LOG_TRACE("Alter table type %d not implemented",

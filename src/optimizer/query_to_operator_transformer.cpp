@@ -228,6 +228,8 @@ void QueryToOperatorTransformer::Visit(const parser::LimitDescription *) {}
 
 void QueryToOperatorTransformer::Visit(
     UNUSED_ATTRIBUTE const parser::CreateStatement *op) {}
+void QueryToOperatorTransformer::Visit(
+    UNUSED_ATTRIBUTE const parser::AlterTableStatement *op) {}
 void QueryToOperatorTransformer::Visit(const parser::InsertStatement *op) {
   storage::DataTable *target_table =
       catalog::Catalog::GetInstance()->GetTableWithName(op->GetDatabaseName(),

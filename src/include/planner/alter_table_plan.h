@@ -21,9 +21,9 @@ class Schema;
 namespace storage {
 class DataTable;
 }
-// namespace parser {
-// class AlterTableStatement;
-// }
+namespace parser {
+class AlterTableStatement;
+}
 
 namespace planner {
 
@@ -31,9 +31,11 @@ class AlterTablePlan : public AbstractPlan {
  public:
   AlterTablePlan() = delete;
 
-  explicit AlterTablePlan(std::string &database_name, std::string &table_name,
-                          std::unique_ptr<catalog::Schema> schema_delta,
-                          AlterTableType c_type);
+  explicit AlterTablePlan(const std::string &database_name,
+                          const std::string &table_name,
+                          std::unique_ptr<catalog::Schema> added_columns,
+                          const std::vector<std::string> &dropped_columns,
+                          AlterTableType a_type);
 
   explicit AlterTablePlan(parser::AlterTableStatement *parse_tree);
 
@@ -43,9 +45,13 @@ class AlterTablePlan : public AbstractPlan {
 
   const std::string GetInfo() const { return "AlterTable Plan"; }
 
-  // std::unique_ptr<AbstractPlan> Copy() const {
-  //   return std::unique_ptr<AbstractPlan>(new AlterTablePlan(target_table_));
-  // }
+  std::unique_ptr<AbstractPlan> Copy() const {
+    return std::unique_ptr<AbstractPlan>(
+        new AlterTablePlan(database_name, table_name,
+                           std::unique_ptr<catalog::Schema>(
+                               catalog::Schema::CopySchema(added_columns)),
+                           dropped_columns, altertable_type));
+  }
 
   std::string GetTableName() const { return table_name; }
 
@@ -53,7 +59,7 @@ class AlterTablePlan : public AbstractPlan {
 
   catalog::Schema *GetAddedColumns() const { return added_columns; }
 
-  std::vector<std::string> &GetDroppedColumns() const {
+  const std::vector<std::string> &GetDroppedColumns() const {
     return dropped_columns;
   }
 
