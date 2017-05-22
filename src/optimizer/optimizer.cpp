@@ -22,21 +22,21 @@
 #include "optimizer/cost_and_stats_calculator.h"
 #include "optimizer/operator_to_plan_transformer.h"
 #include "optimizer/operator_visitor.h"
+#include "optimizer/properties.h"
 #include "optimizer/property_enforcer.h"
 #include "optimizer/query_property_extractor.h"
 #include "optimizer/query_to_operator_transformer.h"
 #include "optimizer/rule_impls.h"
-#include "optimizer/properties.h"
 
+#include "binder/bind_node_visitor.h"
+#include "planner/create_plan.h"
+#include "planner/drop_plan.h"
 #include "planner/order_by_plan.h"
 #include "planner/projection_plan.h"
 #include "planner/seq_scan_plan.h"
-#include "planner/create_plan.h"
-#include "planner/drop_plan.h"
 #include "planner/populate_index_plan.h"
 #include "planner/analyze_plan.h"
 
-#include "binder/bind_node_visitor.h"
 
 using std::vector;
 using std::unordered_map;
@@ -53,7 +53,8 @@ namespace optimizer {
 // Optimizer
 //===--------------------------------------------------------------------===//
 Optimizer::Optimizer() {
-  //  logical_transformation_rules_.emplace_back(new InnerJoinCommutativity());
+  logical_transformation_rules_.emplace_back(new InnerJoinCommutativity());
+  physical_implementation_rules_.emplace_back(new LogicalLimitToPhysical());
   physical_implementation_rules_.emplace_back(new LogicalDeleteToPhysical());
   physical_implementation_rules_.emplace_back(new LogicalUpdateToPhysical());
   physical_implementation_rules_.emplace_back(new LogicalInsertToPhysical());
@@ -171,6 +172,12 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
       }
       break;
     }
+    case StatementType::ALTER: {
+      LOG_TRACE("Adding Alter table plan...");
+      unique_ptr<planner::AbstractPlan> alter_table_plan(
+          new planner::AlterTablePlan((parser::AlterTableStatement *)tree));
+      ddl_plan = move(alter_table_plan);
+    } break;
     case StatementType::TRANSACTION: {
       break;
     }
