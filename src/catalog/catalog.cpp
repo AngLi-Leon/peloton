@@ -814,7 +814,11 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             break;
           }
         }
-        if (!index_exist) continue;
+        if (!index_exist) {
+          // delete record in pg_index
+          IndexCatalog::GetInstance()->DeleteIndex(index_oid, txn);
+          continue;
+        }
 
         // Copy index to new table
         auto index_metadata = new index::IndexMetadata(
@@ -842,12 +846,19 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
       for (oid_t old_column_id = 0;
            old_column_id < old_schema->GetColumnCount(); old_column_id++) {
         old_column_ids.push_back(old_column_id);
+        bool is_found = false;
         for (oid_t new_column_id = 0;
              new_column_id < new_schema->GetColumnCount(); new_column_id++) {
           if (old_schema->GetColumn(old_column_id).GetName() ==
               new_schema->GetColumn(new_column_id).GetName()) {
             column_map[new_column_id] = old_column_id;
+            is_found = true;
           }
+        }
+        if (!is_found) {
+          // delete record from pg_attribute
+          ColumnCatalog::GetInstance()->DeleteColumn(
+              table_oid, old_schema->GetColumn(old_column_id).GetName(), txn);
         }
       }
       planner::SeqScanPlan seq_scan_node(old_table, nullptr, old_column_ids);
@@ -869,9 +880,16 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             auto it = column_map.find(new_column_id);
             type::Value val;
             if (it == column_map.end()) {
+              catalog::Column temp = new_schema->GetColumn(new_column_id);
               // new column
-              val = type::ValueFactory::GetNullValueByType(
-                  new_schema->GetColumn(new_column_id).GetType());
+              val = type::ValueFactory::GetNullValueByType(temp.GetType());
+              LOG_INFO("the added column name is %s", temp.GetName().c_str());
+              // add record in pg_attribute
+              bool result = ColumnCatalog::GetInstance()->InsertColumn(
+                  table_oid, temp.GetName(), new_column_id, temp.GetOffset(),
+                  temp.GetType(), temp.IsInlined(), temp.GetConstraints(),
+                  pool_.get(), txn);
+              LOG_INFO("the result is %d", result);
             } else {
               val = result_tile->GetValue(i, it->second);
             }
