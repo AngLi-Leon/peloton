@@ -12,7 +12,6 @@
 
 #include "nodes.h"
 #include "pg_list.h"
-#include "type/types.h"
 
 typedef enum SetOperation {
   SETOP_NONE = 0,
@@ -554,7 +553,7 @@ typedef enum AlterTableType {
   AT_ValidateConstraint,        /* validate constraint */
   AT_ValidateConstraintRecurse, /* internal to commands/tablecmds.c */
   AT_ProcessedConstraint,       /* pre-processed add constraint (local in
-                     * parser/parse_utilcmd.c) */
+                                 * parser/parse_utilcmd.c) */
   AT_AddIndexConstraint,        /* add constraint using existing index */
   AT_DropConstraint,            /* drop constraint */
   AT_DropConstraintRecurse,     /* internal to commands/tablecmds.c */
@@ -610,10 +609,10 @@ typedef struct AlterTableCmd /* one subcommand of an ALTER TABLE */
   NodeTag type;
   AlterTableType subtype; /* Type of table alteration to apply */
   char *name;             /* column, constraint, or trigger to act on,
-                     * or tablespace */
+                           * or tablespace */
   Node *newowner;         /* RoleSpec */
   Node *def;              /* definition of new column, index,
-                     * constraint, or parent table */
+                           * constraint, or parent table */
   DropBehavior behavior;  /* RESTRICT or CASCADE for DROP cases */
   bool missing_ok;        /* skip error if missing? */
 } AlterTableCmd;

@@ -201,21 +201,19 @@ struct CreateStatement : TableRefStatement {
     }
 
     if (index_attrs != nullptr) {
-      for (auto attr : *index_attrs) delete[] (attr);
+      for (auto attr : *index_attrs) delete[](attr);
       delete index_attrs;
     }
 
     if (index_name != nullptr) {
-      delete[] (index_name);
+      delete[](index_name);
     }
     if (database_name != nullptr) {
-      delete[] (database_name);
+      delete[](database_name);
     }
   }
 
-  virtual void Accept(SqlNodeVisitor* v) const override {
-    v->Visit(this);
-  }
+  virtual void Accept(SqlNodeVisitor* v) const override { v->Visit(this); }
 
   CreateType type;
   bool if_not_exists;

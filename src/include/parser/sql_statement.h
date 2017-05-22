@@ -24,6 +24,7 @@
 #include "common/macros.h"
 #include "common/printable.h"
 #include "type/types.h"
+#include "expression/abstract_expression.h"
 
 namespace peloton {
 
@@ -31,14 +32,157 @@ namespace parser {
 
 struct TableInfo {
   ~TableInfo() {
-    if (table_name != nullptr)
-      delete[] table_name;
-    if (database_name != nullptr)
-      delete[] database_name;
+    if (table_name != nullptr) delete[] table_name;
+    if (database_name != nullptr) delete[] database_name;
   }
   char* table_name = nullptr;
   ;
   char* database_name = nullptr;
+};
+
+/**
+ * @struct ColumnDefinition
+ * @brief Represents definition of a table column
+ */
+struct ColumnDefinition {
+  enum DataType {
+    INVALID,
+
+    PRIMARY,
+    FOREIGN,
+
+    CHAR,
+    INT,
+    INTEGER,
+    TINYINT,
+    SMALLINT,
+    BIGINT,
+    DOUBLE,
+    FLOAT,
+    DECIMAL,
+    BOOLEAN,
+    ADDRESS,
+    TIMESTAMP,
+    TEXT,
+
+    VARCHAR,
+    VARBINARY
+  };
+
+  enum FKConstrActionType { NOACTION, RESTRICT, CASCADE, SETNULL, SETDEFAULT };
+
+  enum FKConstrMatchType { SIMPLE, PARTIAL, FULL };
+
+  ColumnDefinition(DataType type) : type(type) {
+    // Set varlen to TEXT_MAX_LENGTH if the data type is TEXT
+    if (type == TEXT) varlen = type::PELOTON_TEXT_MAX_LEN;
+  }
+
+  ColumnDefinition(char* name, DataType type) : name(name), type(type) {
+    // Set varlen to TEXT_MAX_LENGTH if the data type is TEXT
+    if (type == TEXT) varlen = type::PELOTON_TEXT_MAX_LEN;
+  }
+
+  virtual ~ColumnDefinition() {
+    if (primary_key) {
+      for (auto key : *primary_key) delete[](key);
+      delete primary_key;
+    }
+
+    if (foreign_key_source) {
+      for (auto key : *foreign_key_source) delete[](key);
+      delete foreign_key_source;
+    }
+    if (foreign_key_sink) {
+      for (auto key : *foreign_key_sink) delete[](key);
+      delete foreign_key_sink;
+    }
+    delete[] name;
+    if (table_info_ != nullptr) delete table_info_;
+    if (default_value != nullptr) delete default_value;
+    if (check_expression != nullptr) delete check_expression;
+  }
+
+  static type::Type::TypeId GetValueType(DataType type) {
+    switch (type) {
+      case INT:
+      case INTEGER:
+        return type::Type::INTEGER;
+        break;
+
+      case TINYINT:
+        return type::Type::TINYINT;
+        break;
+      case SMALLINT:
+        return type::Type::SMALLINT;
+        break;
+      case BIGINT:
+        return type::Type::BIGINT;
+        break;
+
+      // case DOUBLE:
+      // case FLOAT:
+      //  return type::Type::DOUBLE;
+      //  break;
+
+      case DECIMAL:
+      case DOUBLE:
+      case FLOAT:
+        return type::Type::DECIMAL;
+        break;
+
+      case BOOLEAN:
+        return type::Type::BOOLEAN;
+        break;
+
+      // case ADDRESS:
+      //  return type::Type::ADDRESS;
+      //  break;
+
+      case TIMESTAMP:
+        return type::Type::TIMESTAMP;
+        break;
+
+      case CHAR:
+      case TEXT:
+      case VARCHAR:
+        return type::Type::VARCHAR;
+        break;
+
+      case VARBINARY:
+        return type::Type::VARBINARY;
+        break;
+
+      case INVALID:
+      case PRIMARY:
+      case FOREIGN:
+      default:
+        return type::Type::INVALID;
+        break;
+    }
+  }
+
+  char* name = nullptr;
+
+  // The name of the table and its database
+  TableInfo* table_info_ = nullptr;
+
+  DataType type;
+  size_t varlen = 0;
+  bool not_null = false;
+  bool primary = false;
+  bool unique = false;
+  expression::AbstractExpression* default_value = nullptr;
+  expression::AbstractExpression* check_expression = nullptr;
+
+  std::vector<char*>* primary_key = nullptr;
+  std::vector<char*>* foreign_key_source = nullptr;
+  std::vector<char*>* foreign_key_sink = nullptr;
+
+  char* foreign_key_table_name = nullptr;
+  FKConstrActionType foreign_key_delete_action;
+  FKConstrActionType foreign_key_update_action;
+  FKConstrMatchType foreign_key_match_type;
 };
 
 // Base class for every SQLStatement
@@ -72,7 +216,9 @@ class TableRefStatement : public SQLStatement {
     }
   }
 
-  virtual inline std::string GetTableName() const { return table_info_->table_name; }
+  virtual inline std::string GetTableName() const {
+    return table_info_->table_name;
+  }
 
   // Get the name of the database of this table
   virtual inline std::string GetDatabaseName() const {
