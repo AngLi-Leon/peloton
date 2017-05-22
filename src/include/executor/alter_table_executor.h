@@ -2,7 +2,7 @@
 //
 //                         Peloton
 //
-// create_executor.h
+// alter_table_executor.h
 //
 // Identification: src/include/executor/alter_table_executor.h
 //

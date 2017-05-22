@@ -385,6 +385,12 @@ executor::AbstractExecutor *BuildExecutorTree(
       LOG_TRACE("Adding Create Executor");
       child_executor = new executor::CreateExecutor(plan, executor_context);
       break;
+
+    case PlanNodeType::ALTER_TABLE:
+      LOG_TRACE("Adding Alter Table Executer");
+      child_executor = new executor::AlterTableExecutor(plan, executor_context);
+      break;
+
     case PlanNodeType::COPY:
       LOG_TRACE("Adding Copy Executor");
       child_executor = new executor::CopyExecutor(plan, executor_context);

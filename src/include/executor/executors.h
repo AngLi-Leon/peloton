@@ -15,6 +15,7 @@
 // This is just for convenience
 
 #include "create_executor.h"
+#include "executor/alter_table_executor.h"
 #include "drop_executor.h"
 #include "executor/aggregate_executor.h"
 #include "executor/limit_executor.h"
