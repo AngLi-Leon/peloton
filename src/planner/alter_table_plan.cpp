@@ -22,21 +22,23 @@ namespace planner {
 
 AlterTablePlan::AlterTablePlan(std::string &database_name,
                                std::string &table_name,
-                               std::unique_ptr<catalog::Schema> schema_delta,
-                               AlterTableType c_type)
+                               std::unique_ptr<catalog::Schema> added_columns,
+                               std::vector<std::string> dropped_columns,
+                               AlterTableType a_type)
     : table_name(table_name),
       database_name(database_name),
-      schema_delta(schema_delta.release()),
-      altertable_type(c_type) {}
+      added_columns(added_columns.release()),
+      dropped_columns(dropped_columns),
+      altertable_type(a_type) {}
 
 AlterTablePlan::AlterTablePlan(parser::AlterTableStatement *parse_tree) {
-  table_name = parse_tree->GetTableName();
-  database_name = parse_tree->GetDatabaseName();
+  table_name = std::string(parse_tree->GetTableName());
+  database_name = std::string(parse_tree->GetDatabaseName());
+  altertable_type = parse_tree->type;
   std::vector<catalog::Column> columns;
   // case 1: add column(column name + column data type)
-  if (parse_tree->type == parse_tree->CreateType::kTable) {
-    altertable_type = AlterTableType::ADDCOLUMN;
-    // tranverse through vector of ColumnDefinition
+  if (parse_tree->type == type::AlterTableType::COLUMN) {
+    // Add columns: traverse through vector of ColumnDefinition
     for (auto col : *parse_tree->columns) {
       type::Type::TypeId val = col->GetValueType(col->type);
       LOG_TRACE("Column name: %s", col->name);
@@ -52,17 +54,12 @@ AlterTablePlan::AlterTablePlan(parser::AlterTableStatement *parse_tree) {
       }
       columns.push_back(column);
     }
-    catalog::Schema *schema = new catalog::Schema(columns);
-    schema_delta = schema;
-  }
-  // case 2: drop column(column name)
-  // case 1 and case 2 can exsit within one sql statement
-  if (parse_tree->type == parse_tree->CreateType::kIndex) {
-    altertable_type = AlterTableType::DROPCOLUMN;
-    // tranverse through vector of char*(column name)
+    added_columns = new catalog::Schema(columns);
+
+    // Drop columns: traverse through vector of char*(column name)
     for (auto col : *parse_tree->names) {
       LOG_TRACE("Drooped column name: %s", col.c_str());
-      dropped_column.push_back(col);
+      dropped_columns.push_back(std::string(col));
     }
   }
 }

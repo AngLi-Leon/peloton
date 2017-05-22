@@ -650,8 +650,7 @@ enum class CreateType {
 
 enum class AlterTableType {
   INVALID = INVALID_TYPE_ID,  // invalid alter type
-  ADDCOLUMN = 1,              // add column type
-  DROPCOLUMN = 2              // drop column type
+  COLUMN = 1                  // add/drop column type
 };
 
 //===--------------------------------------------------------------------===//

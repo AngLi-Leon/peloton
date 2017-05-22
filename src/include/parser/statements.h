@@ -16,6 +16,7 @@
 
 #include "copy_statement.h"
 #include "create_statement.h"
+#include "alter_table_statement.h"
 #include "delete_statement.h"
 #include "drop_statement.h"
 #include "analyze_statement.h"

@@ -31,9 +31,6 @@ class AlterTablePlan : public AbstractPlan {
  public:
   AlterTablePlan() = delete;
 
-  // explicit AlterTablePlan(storage::DataTable *table)
-  //     : target_table_(table), schema_delta(nullptr);
-
   explicit AlterTablePlan(std::string &database_name, std::string &table_name,
                           std::unique_ptr<catalog::Schema> schema_delta,
                           AlterTableType c_type);
@@ -54,7 +51,11 @@ class AlterTablePlan : public AbstractPlan {
 
   std::string GetDatabaseName() const { return database_name; }
 
-  catalog::Schema *GetSchemaDelta() const { return schema_delta; }
+  catalog::Schema *GetAddedColumns() const { return added_columns; }
+
+  std::vector<std::string> &GetDroppedColumns() const {
+    return dropped_columns;
+  }
 
   AlterTableType GetAlterTableType() const { return altertable_type; }
 
@@ -69,9 +70,9 @@ class AlterTablePlan : public AbstractPlan {
   std::string database_name;
 
   // Schema delta, define the column txn want to add
-  catalog::Schema *schema_delta;
+  catalog::Schema *added_columns;
   // dropped_column, define the column you want to drop
-  std::vector<std::string> dropped_column;
+  std::vector<std::string> dropped_columns;
 
   // Check to either AlterTable Table or INDEX
   AlterTableType altertable_type;

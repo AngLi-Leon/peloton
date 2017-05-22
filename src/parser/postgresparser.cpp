@@ -842,7 +842,6 @@ parser::ColumnDefinition* PostgresParser::ColumnDefTransform(ColumnDef* root) {
 // Please refer to parser/parsenode.h for the definition of
 // CreateStmt parsenodes.
 parser::SQLStatement* PostgresParser::CreateTransform(CreateStmt* root) {
-  UNUSED_ATTRIBUTE CreateStmt* temp = root;
   parser::CreateStatement* result =
       new CreateStatement(CreateStatement::CreateType::kTable);
   RangeVar* relation = root->relation;
@@ -853,7 +852,7 @@ parser::SQLStatement* PostgresParser::CreateTransform(CreateStmt* root) {
   }
   if (relation->catalogname) {
     result->table_info_->database_name = cstrdup(relation->catalogname);
-  };
+  }
 
   if (root->tableElts->length > 0) {
     result->columns = new std::vector<ColumnDefinition*>();
@@ -961,10 +960,38 @@ parser::SQLStatement* PostgresParser::CreateDbTransform(CreatedbStmt* root) {
 }
 
 parser::SQLStatement* PostgresParser::AlterTableTransform(
-    UNUSED_ATTRIBUTE AlterTableStmt* root) {
-  // TODO:
-  throw NotImplementedException(
-      StringUtil::Format("Alter Table not supported yet...\n"));
+    AlterTableStmt* root) {
+  // Currently we only support add/drop column type
+  parser::AlterTableStatement* result =
+      new AlterTableStatement(type::AlterTableType::COLUMN);
+
+  // Get database and table name
+  RangeVar* relation = root->relation;
+  result->table_info_ = new parser::TableInfo();
+  if (relation->relname) {
+    result->table_info_->table_name = cstrdup(relation->relname);
+  }
+  if (relation->catalogname) {
+    result->table_info_->database_name = cstrdup(relation->catalogname);
+  }
+
+  for (auto cell = root->head; cell != NULL; cell = cell->next) {
+    auto cmd = reinterpret_cast<AlterTableCmd*>(cell->data.ptr_value);
+    switch (cmd->subtype) {
+      case AlterTableType::AT_AddColumn:
+        auto column =
+            ColumnDefTransform(reinterpret_cast<ColumnDef*>(cmd->def));
+        result->columns->push_back(column);
+        break;
+      case AlterTableType::AT_DropColumn:
+        result->names->push_back(cstrdup(cmd->name));
+        break;
+      default:
+        throw NotImplementedException(StringUtil::Format(
+            "Alter Table type %d not supported yet...\n", cmd->subtype));
+    }
+  }
+  return result;
 }
 
 parser::DropStatement* PostgresParser::DropTransform(DropStmt* root) {
