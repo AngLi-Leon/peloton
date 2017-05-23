@@ -799,15 +799,19 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
       for (auto index_oid : old_index_oids) {
         auto old_index = old_table->GetIndexWithOid(index_oid);
         bool index_exist = true;
+        std::vector<oid_t> new_key_attrs;
         // Check if all indexed columns still exists
         for (oid_t column_id : old_index->GetMetadata()->GetKeyAttrs()) {
           bool is_found = false;
           std::string column_name = old_schema->GetColumn(column_id).GetName();
+          oid_t i = 0;
           for (auto new_column : new_schema->GetColumns()) {
             if (column_name == new_column.GetName()) {
               is_found = true;
+              new_key_attrs.push_back(i);
               break;
             }
+            i++;
           }
           if (!is_found) {
             index_exist = false;
@@ -826,9 +830,9 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             old_index->GetMetadata()->GetIndexType(),
             old_index->GetMetadata()->GetIndexConstraintType(),
             new_schema.get(),
-            catalog::Schema::CopySchema(old_index->GetKeySchema()),
-            old_index->GetMetadata()->GetKeyAttrs(),
-            old_index->GetMetadata()->HasUniqueKeys());
+            // catalog::Schema::CopySchema(old_index->GetKeySchema()),
+            catalog::Schema::CopySchema(new_schema.get(), new_key_attrs),
+            new_key_attrs, old_index->GetMetadata()->HasUniqueKeys());
 
         std::shared_ptr<index::Index> new_index(
             index::IndexFactory::GetIndex(index_metadata));
@@ -891,6 +895,18 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
       // TODO: Final step of physical change should be moved to commit time
       // database->DropTableWithOid(table_oid);
       // database->AddTable(new_table);
+      for (auto old_column : old_schema->GetColumns()) {
+        catalog::ColumnCatalog::GetInstance()->DeleteColumn(
+            table_oid, old_column.GetName(), txn);
+      }
+      oid_t column_offset = 0;
+      for (auto new_column : new_schema->GetColumns()) {
+        catalog::ColumnCatalog::GetInstance()->InsertColumn(
+            table_oid, new_column.GetName(), column_offset,
+            new_column.GetOffset(), new_column.GetType(),
+            new_column.IsInlined(), new_column.GetConstraints(), nullptr, txn);
+        column_offset++;
+      }
       database->ReplaceTableWithOid(table_oid, new_table);
       txn->RecordDropedTable(old_table);
       // TODO: Release table lock, should be moved to commit time too

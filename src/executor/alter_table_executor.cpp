@@ -59,8 +59,8 @@ bool AlterTableExecutor::DExecute() {
           if (old_schema->GetColumn(i).GetName() == drop_column) {
             is_found = true;
             // delete record in pg_attribute
-            catalog::ColumnCatalog::GetInstance()->DeleteColumn(
-                old_table->GetOid(), drop_column, current_txn);
+            // catalog::ColumnCatalog::GetInstance()->DeleteColumn(
+            //     old_table->GetOid(), drop_column, current_txn);
           }
         }
         if (!is_found) {
@@ -90,11 +90,11 @@ bool AlterTableExecutor::DExecute() {
             return false;
           }
         }
-        catalog::ColumnCatalog::GetInstance()->InsertColumn(
-            old_table->GetOid(), new_column.GetName(), column_offset,
-            new_column.GetOffset(), new_column.GetType(),
-            new_column.IsInlined(), new_column.GetConstraints(), nullptr,
-            current_txn);
+        // catalog::ColumnCatalog::GetInstance()->InsertColumn(
+        //     old_table->GetOid(), new_column.GetName(), column_offset,
+        //     new_column.GetOffset(), new_column.GetType(),
+        //     new_column.IsInlined(), new_column.GetConstraints(), nullptr,
+        //     current_txn);
         column_offset++;
       }
 
