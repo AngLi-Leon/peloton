@@ -15,14 +15,15 @@
 #include "planner/abstract_plan.h"
 
 namespace peloton {
+
+namespace parser {
+class AlterTableStatement;
+}
 namespace catalog {
 class Schema;
 }
 namespace storage {
 class DataTable;
-}
-namespace parser {
-class AlterTableStatement;
 }
 
 namespace planner {
