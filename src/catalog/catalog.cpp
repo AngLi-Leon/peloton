@@ -785,7 +785,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
       auto old_schema = old_table->GetSchema();
       // TODO: Try and grab table read lock
 
-      // Get empty table with new schema
+      // Step 1: build empty table with new schema
       bool own_schema = true;
       bool adapt_table = false;
       auto new_table = storage::TableFactory::GetDataTable(
@@ -793,14 +793,17 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
           catalog::Schema::CopySchema(new_schema.get()), old_table->GetName(),
           DEFAULT_TUPLES_PER_TILEGROUP, own_schema, adapt_table);
 
-      // Copy indexes
+      // Step 2: Copy indexes
       auto old_index_oids =
           IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
       for (auto index_oid : old_index_oids) {
+        // delete record in pg_index
+        IndexCatalog::GetInstance()->DeleteIndex(index_oid, txn);
+        // Check if all indexed columns still exists
         auto old_index = old_table->GetIndexWithOid(index_oid);
         bool index_exist = true;
         std::vector<oid_t> new_key_attrs;
-        // Check if all indexed columns still exists
+
         for (oid_t column_id : old_index->GetMetadata()->GetKeyAttrs()) {
           bool is_found = false;
           std::string column_name = old_schema->GetColumn(column_id).GetName();
@@ -818,13 +821,9 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             break;
           }
         }
-        if (!index_exist) {
-          // delete record in pg_index
-          IndexCatalog::GetInstance()->DeleteIndex(index_oid, txn);
-          continue;
-        }
+        if (!index_exist) continue;
 
-        // Copy index to new table
+        // construct index on new table
         auto index_metadata = new index::IndexMetadata(
             old_index->GetName(), index_oid, table_oid, database_oid,
             old_index->GetMetadata()->GetIndexType(),
@@ -837,14 +836,20 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
         std::shared_ptr<index::Index> new_index(
             index::IndexFactory::GetIndex(index_metadata));
         new_table->AddIndex(new_index);
+
+        // reinsert record into pg_index
+        IndexCatalog::GetInstance()->InsertIndex(
+            index_oid, old_index->GetName(), table_oid,
+            old_index->GetMetadata()->GetIndexType(),
+            old_index->GetMetadata()->GetIndexConstraintType(),
+            old_index->GetMetadata()->HasUniqueKeys(), new_key_attrs, nullptr,
+            txn);
       }
 
-      // Get tuples from old table with sequential scan
-      // TODO: Try to reuse Sequential scan function and insert function in
-      // abstract catalog
       std::unique_ptr<executor::ExecutorContext> context(
           new executor::ExecutorContext(txn));
-
+      // Step 3: build column mapping between old table and new table
+      // we're using column name as unique identifier
       std::vector<oid_t> old_column_ids;
       std::unordered_map<oid_t, oid_t> column_map;
       for (oid_t old_column_id = 0;
@@ -858,7 +863,9 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
           }
         }
       }
-
+      // Step 4: Get tuples from old table with sequential scan
+      // TODO: Try to reuse Sequential scan function and insert function in
+      // abstract catalog
       planner::SeqScanPlan seq_scan_node(old_table, nullptr, old_column_ids);
       executor::SeqScanExecutor seq_scan_executor(&seq_scan_node,
                                                   context.get());
@@ -876,10 +883,11 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             auto it = column_map.find(new_column_id);
             type::Value val;
             if (it == column_map.end()) {
-              // new column
+              // new column, set value to null
               val = type::ValueFactory::GetNullValueByType(
                   new_schema->GetColumn(new_column_id).GetType());
             } else {
+              // otherwise, copy value in old table
               val = result_tile->GetValue(i, it->second);
             }
             tuple->SetValue(new_column_id, val, pool_.get());
@@ -891,14 +899,10 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
           executor.Execute();
         }
       }
-
-      // TODO: Final step of physical change should be moved to commit time
-      // database->DropTableWithOid(table_oid);
-      // database->AddTable(new_table);
-      for (auto old_column : old_schema->GetColumns()) {
-        catalog::ColumnCatalog::GetInstance()->DeleteColumn(
-            table_oid, old_column.GetName(), txn);
-      }
+      // Step 5: delete all the column(attribute) records in pg_attribute
+      // and reinsert them using new schema(column offset needs to change
+      // accordingly)
+      catalog::ColumnCatalog::GetInstance()->DeleteColumns(table_oid, txn);
       oid_t column_offset = 0;
       for (auto new_column : new_schema->GetColumns()) {
         catalog::ColumnCatalog::GetInstance()->InsertColumn(
@@ -907,6 +911,8 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             new_column.IsInlined(), new_column.GetConstraints(), nullptr, txn);
         column_offset++;
       }
+
+      // Final step of physical change should be moved to commit time
       database->ReplaceTableWithOid(table_oid, new_table);
       txn->RecordDropedTable(old_table);
       // TODO: Release table lock, should be moved to commit time too

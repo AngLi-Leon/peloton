@@ -22,18 +22,19 @@
 
 #include "configuration/configuration.h"
 
+#include "common/exception.h"
 #include "expression/aggregate_expression.h"
 #include "expression/expression_util.h"
-#include "common/exception.h"
 #include "parser/select_statement.h"
 
 #include "catalog/catalog.h"
 #include "executor/plan_executor.h"
 #include "optimizer/optimizer.h"
+#include "optimizer/simple_optimizer.h"
 #include "planner/plan_util.h"
 
-#include <boost/algorithm/string.hpp>
 #include <include/parser/postgresparser.h>
+#include <boost/algorithm/string.hpp>
 
 
 namespace peloton {
