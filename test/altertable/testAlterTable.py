@@ -21,7 +21,7 @@ def testAdd(options, psql_command, add_columns=1):
     start = time.time()
     added_column_names = [randName(options.def_name_len)
                           for _ in range(add_columns)]
-    commands = ", ".join(['add column {} int'.format(col)
+    commands = ", ".join(['add column {} int default 1'.format(col)
                           for col in added_column_names])
     os.system(psql_command + " -c \"alter table {} {};\" > /dev/null".format(
         options.table_name, commands))
@@ -50,13 +50,14 @@ def main():
     parser.add_argument('--def_name_len', default=6, type=int)
     parser.add_argument('--table_name', default=None, type=str)
     parser.add_argument('--columns', default=5, type=int)
-    parser.add_argument('--repeats', default=5, type=int)
+    parser.add_argument('--repeats', default=3, type=int)
     # parser.add_argument('--alter_type', default=1,
     #                     type=int, help='add=1, drop=2')
     # parser.add_argument('--changed_columns', default=1, type=int)
     parser.add_argument('--tuples', default=1000, type=int)
     parser.add_argument('--batch_size', default=100, type=int)
-    parser.add_argument('--filename', default="largeTable.sql", type=str)
+    parser.add_argument(
+        '--filename', default="largeTable.sql", type=str)
     parser.add_argument('--port', default=15721, type=int)
     options = parser.parse_args()
 
@@ -78,11 +79,12 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testAdd(options, postgres_command, i))
         add_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(add_ts)
+    print(add_ts)
 
     f, ax = plt.subplots(1)
     add_ts = np.array(add_ts)
-    ax.plot(np.arange(options.columns) + 1, add_ts.T[0], label='postgres')
+    ax.plot(np.arange(options.columns) + 1,
+            add_ts.T[0], label='postgres')
     ax.fill_between(np.arange(options.columns) + 1,
                     add_ts.T[1], add_ts.T[2], alpha=.2)
 
@@ -95,10 +97,11 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testAdd(options, peloton_command, i))
         add_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(add_ts)
+    print(add_ts)
 
     add_ts = np.array(add_ts)
-    ax.plot(np.arange(options.columns) + 1, add_ts.T[0], label='peloton')
+    ax.plot(np.arange(options.columns) + 1,
+            add_ts.T[0], label='peloton')
     ax.fill_between(np.arange(options.columns) + 1,
                     add_ts.T[1], add_ts.T[2], alpha=.2)
 
@@ -116,11 +119,12 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testDrop(options, postgres_command, i))
         drop_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(drop_ts)
+    print(drop_ts)
 
     f, ax = plt.subplots(1)
     drop_ts = np.array(drop_ts)
-    ax.plot(np.arange(options.columns) + 1, drop_ts.T[0], label='postgres')
+    ax.plot(np.arange(options.columns) + 1,
+            drop_ts.T[0], label='postgres')
     ax.fill_between(np.arange(options.columns) + 1,
                     drop_ts.T[1], drop_ts.T[2], alpha=.2)
 
@@ -133,11 +137,12 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testDrop(options, peloton_command, i))
         drop_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(drop_ts)
+    print(drop_ts)
 
     f, ax = plt.subplots(1)
     drop_ts = np.array(drop_ts)
-    ax.plot(np.arange(options.columns) + 1, drop_ts.T[0], label='peloton')
+    ax.plot(np.arange(options.columns) + 1,
+            drop_ts.T[0], label='peloton')
     ax.fill_between(np.arange(options.columns) + 1,
                     drop_ts.T[1], drop_ts.T[2], alpha=.2)
 
@@ -158,7 +163,7 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testAdd(options, postgres_command, 1))
         tuple_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(tuple_ts)
+    print(tuple_ts)
     options.tuples = default_tuples
     genTable(options)
 
@@ -181,7 +186,7 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testAdd(options, peloton_command, 1))
         tuple_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(tuple_ts)
+    print(tuple_ts)
     options.tuples = default_tuples
     genTable(options)
 
@@ -208,13 +213,14 @@ def main():
                       " < {} > /dev/null".format(options.filename))
             ts.append(testAdd(options, postgres_command, 1))
         column_ts.append([np.mean(ts), np.min(ts), np.max(ts)])
-        # print(column_ts)
         options.columns += 1
+    print(column_ts)
     options.columns = default_columns
 
     f, ax = plt.subplots(1)
     column_ts = np.array(column_ts)
-    ax.plot(np.arange(5) + default_columns, column_ts.T[0], label='postgres')
+    ax.plot(np.arange(5) + default_columns,
+            column_ts.T[0], label='postgres')
     ax.fill_between(np.arange(5) + default_columns,
                     column_ts.T[1], column_ts.T[2], alpha=.2)
 
@@ -235,7 +241,8 @@ def main():
 
     f, ax = plt.subplots(1)
     column_ts = np.array(column_ts)
-    ax.plot(np.arange(5) + default_columns, column_ts.T[0], label='peloton')
+    ax.plot(np.arange(5) + default_columns,
+            column_ts.T[0], label='peloton')
     ax.fill_between(np.arange(5) + default_columns,
                     column_ts.T[1], column_ts.T[2], alpha=.2)
 
