@@ -21,7 +21,6 @@
 #include "storage/database.h"
 #include "storage/storage_manager.h"
 
-
 namespace peloton {
 
 namespace test {
@@ -45,7 +44,6 @@ void UpdateTuple(storage::DataTable *table, const int update_num, const int tota
 
   EXPECT_TRUE(scheduler.schedules[0].txn_result == ResultType::SUCCESS);
 }
-
 void DeleteTuple(storage::DataTable *table, const int delete_num, const int total_num) {
   srand(15721);
 
@@ -110,7 +108,7 @@ TEST_F(TransactionLevelGCManagerTests, GCTest) {
   // as the current epoch id is set to 2, 
   // the expected expired epoch id should be 1.
   auto expired_eid = epoch_manager.GetExpiredEpochId();
-  
+
   EXPECT_EQ(1, expired_eid);
 
   auto current_eid = epoch_manager.GetCurrentEpochId();
@@ -196,10 +194,7 @@ TEST_F(TransactionLevelGCManagerTests, GCTest) {
   // DROP!
   TestingExecutorUtil::DeleteDatabase("DATABASE");
   EXPECT_FALSE(storage_manager->HasDatabase(db_id));
-
 }
-
 
 }  // End test namespace
 }  // End peloton namespace
-

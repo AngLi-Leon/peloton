@@ -12,9 +12,9 @@
 
 #include "planner/drop_plan.h"
 
+#include "catalog/catalog.h"
 #include "parser/drop_statement.h"
 #include "storage/data_table.h"
-#include "catalog/catalog.h"
 
 namespace peloton {
 namespace planner {
@@ -26,8 +26,8 @@ DropPlan::DropPlan(storage::DataTable *table) {
 
 DropPlan::DropPlan(std::string name) {
   table_name = name;
-  target_table_ = catalog::Catalog::GetInstance()->GetTableWithName(
-      DEFAULT_DB_NAME, table_name);
+  // target_table_ = catalog::Catalog::GetInstance()->GetTableWithName(
+  //     DEFAULT_DB_NAME, table_name);
   missing = false;
 }
 
@@ -36,16 +36,15 @@ DropPlan::DropPlan(parser::DropStatement *parse_tree) {
   // Set it up for the moment , cannot seem to find it in DropStatement
   missing = parse_tree->missing;
 
-  try {
-    target_table_ = catalog::Catalog::GetInstance()->GetTableWithName(
-        parse_tree->GetDatabaseName(), table_name);
-  }
-  catch (CatalogException &e) {
-    // Dropping a table which doesn't exist
-    if (missing == false) {
-      throw e;
-    }
-  }
+  // try {
+  //   target_table_ = catalog::Catalog::GetInstance()->GetTableWithName(
+  //       parse_tree->GetDatabaseName(), table_name);
+  // } catch (CatalogException &e) {
+  //   // Dropping a table which doesn't exist
+  //   if (missing == false) {
+  //     throw e;
+  //   }
+  // }
 }
 
 }  // namespace planner

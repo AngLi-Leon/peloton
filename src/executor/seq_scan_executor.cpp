@@ -13,28 +13,28 @@
 #include "executor/seq_scan_executor.h"
 
 #include <memory>
+#include <numeric>
 #include <utility>
 #include <vector>
-#include <numeric>
 
-#include "type/types.h"
+#include "common/container_tuple.h"
+#include "common/logger.h"
 #include "type/value_factory.h"
+#include "concurrency/transaction_manager_factory.h"
+#include "executor/executor_context.h"
 #include "executor/logical_tile.h"
 #include "executor/logical_tile_factory.h"
-#include "executor/executor_context.h"
 #include "expression/abstract_expression.h"
+#include "index/index.h"
 #include "expression/tuple_value_expression.h"
 #include "expression/conjunction_expression.h"
 #include "expression/constant_value_expression.h"
 #include "expression/comparison_expression.h"
-#include "common/container_tuple.h"
 #include "planner/create_plan.h"
 #include "storage/data_table.h"
-#include "storage/tile_group_header.h"
 #include "storage/tile.h"
-#include "concurrency/transaction_manager_factory.h"
-#include "common/logger.h"
-#include "index/index.h"
+#include "storage/tile_group_header.h"
+#include "type/types.h"
 
 namespace peloton {
 namespace executor {
@@ -60,7 +60,7 @@ bool SeqScanExecutor::DInit() {
   const planner::SeqScanPlan &node = GetPlanNode<planner::SeqScanPlan>();
 
   target_table_ = node.GetTable();
-
+  // START_OID equal to 0
   current_tile_group_offset_ = START_OID;
 
   old_predicate_ = predicate_;

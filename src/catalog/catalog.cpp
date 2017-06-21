@@ -38,11 +38,11 @@ Catalog *Catalog::GetInstance(void) {
 }
 
 /* Initialization of catalog, including:
-* 1) create pg_catalog database, create catalog tables, add them into
-* pg_catalog database, insert columns into pg_attribute
-* 2) create necessary indexes, insert into pg_index
-* 3) insert pg_catalog into pg_database, catalog tables into pg_table
-*/
+ * 1) create pg_catalog database, create catalog tables, add them into
+ * pg_catalog database, insert columns into pg_attribute
+ * 2) create necessary indexes, insert into pg_index
+ * 3) insert pg_catalog into pg_database, catalog tables into pg_table
+ */
 Catalog::Catalog() : pool_(new type::EphemeralPool()) {
   // Begin transaction for catalog initialization
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
@@ -186,12 +186,12 @@ ResultType Catalog::CreateDatabase(const std::string &database_name,
 }
 
 /*@brief   create table
-* @param   database_name    the database which the table belongs to
-* @param   table_name       name of the table to add index on
-* @param   schema           schema, a.k.a metadata of the table
-* @param   txn              Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * @param   database_name    the database which the table belongs to
+ * @param   table_name       name of the table to add index on
+ * @param   schema           schema, a.k.a metadata of the table
+ * @param   txn              Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::CreateTable(const std::string &database_name,
                                 const std::string &table_name,
                                 std::unique_ptr<catalog::Schema> schema,
@@ -273,13 +273,13 @@ ResultType Catalog::CreateTable(const std::string &database_name,
 }
 
 /*@brief   create primary index on table
-* Note that this is a catalog helper function only called within catalog.cpp
-* If you want to create index on table outside, call CreateIndex() instead
-* @param   database_oid     the database which the indexed table belongs to
-* @param   table_oid        oid of the table to add index on
-* @param   txn              Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * Note that this is a catalog helper function only called within catalog.cpp
+ * If you want to create index on table outside, call CreateIndex() instead
+ * @param   database_oid     the database which the indexed table belongs to
+ * @param   table_oid        oid of the table to add index on
+ * @param   txn              Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::CreatePrimaryIndex(oid_t database_oid, oid_t table_oid,
                                        concurrency::Transaction *txn) {
   if (txn == nullptr) {
@@ -354,17 +354,17 @@ ResultType Catalog::CreatePrimaryIndex(oid_t database_oid, oid_t table_oid,
 }
 
 /*@brief   create index on table
-* @param   database_name    the database which the indexed table belongs to
-* @param   table_name       name of the table to add index on
-* @param   index_attr       collection of the indexed attribute(column) name
-* @param   index_name       name of the table to add index on
-* @param   unique_keys      index supports duplicate key or not
-* @param   index_type       the type of index(default value is BWTREE)
-* @param   txn              Transaction
-* @param   is_catalog       index is built on catalog table or not(useful in
-* catalog table Initialization)
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * @param   database_name    the database which the indexed table belongs to
+ * @param   table_name       name of the table to add index on
+ * @param   index_attr       collection of the indexed attribute(column) name
+ * @param   index_name       name of the table to add index on
+ * @param   unique_keys      index supports duplicate key or not
+ * @param   index_type       the type of index(default value is BWTREE)
+ * @param   txn              Transaction
+ * @param   is_catalog       index is built on catalog table or not(useful in
+ * catalog table Initialization)
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::CreateIndex(const std::string &database_name,
                                 const std::string &table_name,
                                 const std::vector<std::string> &index_attr,
@@ -456,7 +456,7 @@ ResultType Catalog::CreateIndex(oid_t database_oid, oid_t table_oid,
       // Check for mismatch between key attributes and attributes
       // that came out of the parser
       if (key_attrs.size() != index_attr.size()) {
-        LOG_INFO("Some columns are missing");
+        LOG_TRACE("Some columns are missing");
         return ResultType::FAILURE;
       }
 
@@ -508,8 +508,8 @@ ResultType Catalog::CreateIndex(oid_t database_oid, oid_t table_oid,
 //===----------------------------------------------------------------------===//
 
 /*
-* only for test purposes
-*/
+ * only for test purposes
+ */
 ResultType Catalog::DropDatabaseWithName(const std::string &database_name,
                                          concurrency::Transaction *txn) {
   if (txn == nullptr) {
@@ -564,16 +564,16 @@ ResultType Catalog::DropDatabaseWithOid(oid_t database_oid,
 }
 
 /*@brief   Drop table
-* 1. drop all the indexes on actual table, and drop index records in pg_index
-* 2. drop all the columns records in pg_attribute
-* 3. drop table record in pg_table
-* 4. delete actual table(storage level), cleanup schema, foreign keys,
-* tile_groups
-* @param   database_name    the database which the dropped table belongs to
-* @param   table_name       the dropped table name
-* @param   txn              Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * 1. drop all the indexes on actual table, and drop index records in pg_index
+ * 2. drop all the columns records in pg_attribute
+ * 3. drop table record in pg_table
+ * 4. delete actual table(storage level), cleanup schema, foreign keys,
+ * tile_groups
+ * @param   database_name    the database which the dropped table belongs to
+ * @param   table_name       the dropped table name
+ * @param   txn              Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::DropTable(const std::string &database_name,
                               const std::string &table_name,
                               concurrency::Transaction *txn) {
@@ -617,14 +617,16 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
     LOG_TRACE("Deleting table!");
     // STEP 1, read index_oids from pg_index, and iterate through
     auto index_oids = IndexCatalog::GetInstance()->GetIndexOids(table_oid, txn);
-    LOG_INFO("dropping #%d indexes", (int)index_oids.size());
+    LOG_TRACE("dropping #%d indexes", (int)index_oids.size());
 
     for (oid_t index_oid : index_oids) DropIndex(index_oid, txn);
     // STEP 2
     ColumnCatalog::GetInstance()->DeleteColumns(table_oid, txn);
     // STEP 3
     TableCatalog::GetInstance()->DeleteTable(table_oid, txn);
-    // STEP 4
+    // STEP 4, erase record in datatbase, but keep object
+    txn->RecordDropedTable(GetTableWithOid(database_oid, table_oid));
+    auto database = GetDatabaseWithOid(database_oid);
     database->DropTableWithOid(table_oid);
 
     return ResultType::SUCCESS;
@@ -635,10 +637,10 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
 }
 
 /*@brief   Drop Index on table
-* @param   index_oid      the oid of the index to be dropped
-* @param   txn            Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * @param   index_oid      the oid of the index to be dropped
+ * @param   txn            Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::DropIndex(oid_t index_oid, concurrency::Transaction *txn) {
   if (txn == nullptr) {
     LOG_TRACE("Do not have transaction to drop index: %d", (int)index_oid);
@@ -667,8 +669,8 @@ ResultType Catalog::DropIndex(oid_t index_oid, concurrency::Transaction *txn) {
       // drop record in pg_index
       IndexCatalog::GetInstance()->DeleteIndex(index_oid, txn);
 
-      LOG_INFO("Successfully drop index %d for table %s", index_oid,
-               table->GetName().c_str());
+      LOG_TRACE("Successfully drop index %d for table %s", index_oid,
+                table->GetName().c_str());
       // drop index in actual table
       table->DropIndexWithOid(index_oid);
 
@@ -842,8 +844,8 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
             index_oid, old_index->GetName(), table_oid,
             old_index->GetMetadata()->GetIndexType(),
             old_index->GetMetadata()->GetIndexConstraintType(),
-            old_index->GetMetadata()->HasUniqueKeys(), new_key_attrs, nullptr,
-            txn);
+            old_index->GetMetadata()->HasUniqueKeys(), new_key_attrs,
+            pool_.get(), txn);
       }
 
       std::unique_ptr<executor::ExecutorContext> context(
@@ -908,7 +910,8 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
         catalog::ColumnCatalog::GetInstance()->InsertColumn(
             table_oid, new_column.GetName(), column_offset,
             new_column.GetOffset(), new_column.GetType(),
-            new_column.IsInlined(), new_column.GetConstraints(), nullptr, txn);
+            new_column.IsInlined(), new_column.GetConstraints(), pool_.get(),
+            txn);
         column_offset++;
       }
 
@@ -917,13 +920,9 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
       txn->RecordDropedTable(old_table);
       // TODO: Release table lock, should be moved to commit time too
     } catch (CatalogException &e) {
-      LOG_TRACE("Can't find table %s. Return RESULT_FAILURE",
-                table_name.c_str());
       return ResultType::FAILURE;
     }
   } catch (CatalogException &e) {
-    LOG_TRACE("Can't found database %s. Return RESULT_FAILURE",
-              database_name.c_str());
     return ResultType::FAILURE;
   }
   return ResultType::SUCCESS;
@@ -1013,5 +1012,5 @@ void Catalog::InitializeFunctions() {
   AddFunction("extract", {type::TypeId::INTEGER, type::TypeId::TIMESTAMP},
               type::TypeId::DECIMAL, expression::DateFunctions::Extract);
 }
-}
-}
+}  // namespace catalog
+}  // namespace peloton

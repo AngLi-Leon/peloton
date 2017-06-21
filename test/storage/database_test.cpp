@@ -41,7 +41,6 @@ TEST_F(DatabaseTests, AddDropTest) {
   EXPECT_FALSE(storage_manager->HasDatabase(db_id));
 }
 
-
 TEST_F(DatabaseTests, AddDropTableTest) {
   // ADD!
   auto storage_manager = storage::StorageManager::GetInstance();
@@ -59,9 +58,9 @@ TEST_F(DatabaseTests, AddDropTableTest) {
 
   EXPECT_TRUE(database->GetTableCount() == 1);
 
-
   database->DropTableWithOid(table_oid);
-  
+  delete data_table.get();
+
   EXPECT_TRUE(database->GetTableCount() == 0);
 
   data_table.release();

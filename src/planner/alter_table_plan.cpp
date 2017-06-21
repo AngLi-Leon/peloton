@@ -58,7 +58,7 @@ AlterTablePlan::AlterTablePlan(parser::AlterTableStatement *parse_tree) {
 
     // Drop columns: traverse through vector of char*(column name)
     for (auto col : *parse_tree->names) {
-      LOG_TRACE("Drooped column name: %s", col.c_str());
+      LOG_TRACE("Drooped column name: %s", col);
       dropped_columns.push_back(std::string(col));
     }
   }

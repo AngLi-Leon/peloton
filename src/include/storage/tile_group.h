@@ -30,7 +30,7 @@ namespace peloton {
 namespace catalog {
 class Manager;
 class Schema;
-}
+}  // namespace catalog
 
 namespace gc {
 class GCManager;
@@ -223,5 +223,5 @@ class TileGroup : public Printable {
   column_map_type column_map;
 };
 
-}  // End storage namespace
-}  // End peloton namespace
+}  // namespace storage
+}  // namespace peloton

@@ -35,7 +35,7 @@
 
 #include <include/parser/postgresparser.h>
 #include <boost/algorithm/string.hpp>
-
+//#define NEW_OPTIMIZER
 
 namespace peloton {
 namespace tcop {
@@ -84,6 +84,7 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction(thread_id);
+  LOG_TRACE("the begin transaction info is %s", txn->GetInfo().c_str());
 
   // this shouldn't happen
   if (txn == nullptr) {
@@ -99,6 +100,9 @@ ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
 ResultType TrafficCop::CommitQueryHelper() {
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return ResultType::NOOP;
+  LOG_TRACE("the commit transaction info is %s",
+            curr_state.first->GetInfo().c_str());
+
   auto &curr_state = tcop_txn_state_.top();
   tcop_txn_state_.pop();
   // commit the txn only if it has not aborted already
@@ -136,6 +140,13 @@ ResultType TrafficCop::ExecuteStatement(
     std::string &error_message, const size_t thread_id UNUSED_ATTRIBUTE) {
   LOG_TRACE("Received %s", query.c_str());
 
+  if (query == "BEGIN")
+    return BeginQueryHelper(thread_id);
+  else if (query == "COMMIT")
+    return CommitQueryHelper();
+  else if (query == "ROLLBACK")
+    return AbortQueryHelper();
+  // if statement type does not belongs to transaction
   // Prepare the statement
   std::string unnamed_statement = "unnamed";
   auto statement = PrepareStatement(unnamed_statement, query, error_message);
@@ -158,7 +169,6 @@ ResultType TrafficCop::ExecuteStatement(
   } else {
     LOG_TRACE("Execution failed!");
   }
-
   return status;
 }
 
@@ -173,8 +183,6 @@ ResultType TrafficCop::ExecuteStatement(
     stats::BackendStatsContext::GetInstance()->InitQueryMetric(statement,
                                                                param_stats);
   }
-  LOG_TRACE("Execute Statement of name: %s",
-            statement->GetStatementName().c_str());
   LOG_TRACE("Execute Statement of query: %s",
             statement->GetStatementName().c_str());
   LOG_TRACE("Execute Statement Plan:\n%s",
@@ -486,5 +494,5 @@ FieldInfo TrafficCop::GetColumnFieldForAggregates(std::string name,
                          field_size);
 }
 
-}  // End tcop namespace
-}  // End peloton namespace
+}  // namespace tcop
+}  // namespace peloton

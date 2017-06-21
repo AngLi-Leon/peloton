@@ -29,8 +29,8 @@
 #include "optimizer/rule_impls.h"
 
 #include "binder/bind_node_visitor.h"
-#include "planner/create_plan.h"
 #include "planner/alter_table_plan.h"
+#include "planner/create_plan.h"
 #include "planner/drop_plan.h"
 #include "planner/order_by_plan.h"
 #include "planner/projection_plan.h"
