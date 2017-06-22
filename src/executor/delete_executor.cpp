@@ -47,6 +47,7 @@ bool DeleteExecutor::DInit() {
   PL_ASSERT(executor_context_);
 
   PL_ASSERT(target_table_ == nullptr);
+    PL_ASSERT(schema_version_ == INVALID_OID);
 
   // Delete tuples in logical tile
   LOG_TRACE("Delete executor :: 1 child ");
@@ -54,7 +55,9 @@ bool DeleteExecutor::DInit() {
   // Grab data from plan node.
   const planner::DeletePlan &node = GetPlanNode<planner::DeletePlan>();
   target_table_ = node.GetTable();
+    schema_version_ = node.GetSchemaVersion();
   PL_ASSERT(target_table_);
+    PL_ASSERT(schema_version_ != INVALID_OID);
 
   return true;
 }
@@ -75,7 +78,7 @@ bool DeleteExecutor::DExecute() {
   std::unique_ptr<LogicalTile> source_tile(children_[0]->GetOutput());
 
   auto &pos_lists = source_tile.get()->GetPositionLists();
-  
+
   auto &transaction_manager =
       concurrency::TransactionManagerFactory::GetInstance();
 
@@ -102,11 +105,11 @@ bool DeleteExecutor::DExecute() {
     LOG_TRACE("Visible Tuple id : %u, Physical Tuple id : %u ",
               visible_tuple_id, physical_tuple_id);
 
-    // if running at snapshot isolation, 
+    // if running at snapshot isolation,
     // then we need to retrieve the latest version of this tuple.
     if (current_txn->GetIsolationLevel() == IsolationLevelType::SNAPSHOT) {
       old_location = *(tile_group_header->GetIndirection(physical_tuple_id));
-      
+
       auto &manager = catalog::Manager::GetInstance();
       tile_group = manager.GetTileGroup(old_location.block).get();
       tile_group_header = tile_group->GetHeader();
@@ -114,7 +117,7 @@ bool DeleteExecutor::DExecute() {
       physical_tuple_id = old_location.offset;
     }
 
-    bool is_owner = 
+    bool is_owner =
         transaction_manager.IsOwner(current_txn, tile_group_header, physical_tuple_id);
 
     bool is_written =
@@ -147,7 +150,7 @@ bool DeleteExecutor::DExecute() {
         }
         // if it is the latest version and not locked by other threads, then
         // insert an empty version.
-        ItemPointer new_location = target_table_->InsertEmptyVersion();
+        ItemPointer new_location = target_table_->InsertEmptyVersion(schema_version_);
 
         // PerformUpdate() will not be executed if the insertion failed.
         // There is a write lock acquired, but since it is not in the write set,

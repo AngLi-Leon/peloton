@@ -142,8 +142,9 @@ void LoadTable(std::unique_ptr<storage::DataTable> &hyadapt_table) {
     }
 
     ItemPointer *index_entry_ptr = nullptr;
+    // TODO: pass valid schema_version
     ItemPointer tuple_slot_id =
-        hyadapt_table->InsertTuple(&tuple, txn, &index_entry_ptr);
+        hyadapt_table->InsertTuple(&tuple, txn, &index_entry_ptr, 0);
     PL_ASSERT(tuple_slot_id.block != INVALID_OID);
     PL_ASSERT(tuple_slot_id.offset != INVALID_OID);
 

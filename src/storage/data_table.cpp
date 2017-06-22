@@ -80,7 +80,7 @@ DataTable::DataTable(catalog::Schema *schema, const std::string &table_name,
   active_indirection_arrays_.resize(active_indirection_array_count_);
   // Create tile groups.
   for (size_t i = 0; i < active_tilegroup_count_; ++i) {
-    AddDefaultTileGroup(i);
+    AddDefaultTileGroup(i, START_OID);
   }
 
   // Create indirection layers.
@@ -124,7 +124,10 @@ DataTable::~DataTable() {
 // TUPLE HELPER OPERATIONS
 //===--------------------------------------------------------------------===//
 
-bool DataTable::CheckNulls(const storage::Tuple *tuple) const {
+    bool DataTable::CheckNulls(const storage::Tuple *tuple,
+                               oid_t schema_version) const {
+      PL_ASSERT(schema_version < schema_chain_.GetSize());
+      auto *schema = schema_chain_.Find(schema_version);
   PL_ASSERT(schema->GetColumnCount() == tuple->GetColumnCount());
 
   oid_t column_count = schema->GetColumnCount();
@@ -141,9 +144,10 @@ bool DataTable::CheckNulls(const storage::Tuple *tuple) const {
   return true;
 }
 
-bool DataTable::CheckConstraints(const storage::Tuple *tuple) const {
+    bool DataTable::CheckConstraints(const storage::Tuple *tuple,
+                                     oid_t schema_version) const {
   // First, check NULL constraints
-  if (CheckNulls(tuple) == false) {
+      if (CheckNulls(tuple, schema_version) == false) {
     LOG_TRACE("Not NULL constraint violated");
     throw ConstraintException("Not NULL constraint violated : " +
                               std::string(tuple->GetInfo()));
@@ -166,7 +170,8 @@ bool DataTable::CheckConstraints(const storage::Tuple *tuple) const {
 // in-place update at executor level.
 // however, when performing insert, we have to copy data immediately,
 // and the argument cannot be set to nullptr.
-ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple) {
+    ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple,
+                                             oid_t schema_version) {
   //=============== garbage collection==================
   // check if there are recycled tuple slots
   auto &gc_manager = gc::GCManagerFactory::GetInstance();
@@ -204,7 +209,7 @@ ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple) {
   // if this is the last tuple slot we can get
   // then create a new tile group
   if (tuple_slot == tile_group->GetAllocatedTupleCount() - 1) {
-    AddDefaultTileGroup(active_tile_group_id);
+    AddDefaultTileGroup(active_tile_group_id, schema_version);
   }
 
   LOG_TRACE("tile group count: %lu, tile group id: %u, address: %p",
@@ -220,9 +225,9 @@ ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple) {
 //===--------------------------------------------------------------------===//
 // INSERT
 //===--------------------------------------------------------------------===//
-ItemPointer DataTable::InsertEmptyVersion() {
+    ItemPointer DataTable::InsertEmptyVersion(oid_t schema_version) {
   // First, claim a slot
-  ItemPointer location = GetEmptyTupleSlot(nullptr);
+      ItemPointer location = GetEmptyTupleSlot(nullptr, schema_version);
   if (location.block == INVALID_OID) {
     LOG_TRACE("Failed to get tuple slot.");
     return INVALID_ITEMPOINTER;
@@ -234,9 +239,9 @@ ItemPointer DataTable::InsertEmptyVersion() {
   return location;
 }
 
-ItemPointer DataTable::AcquireVersion() {
+    ItemPointer DataTable::AcquireVersion(oid_t schema_version) {
   // First, claim a slot
-  ItemPointer location = GetEmptyTupleSlot(nullptr);
+      ItemPointer location = GetEmptyTupleSlot(nullptr, schema_version);
   if (location.block == INVALID_OID) {
     LOG_TRACE("Failed to get tuple slot.");
     return INVALID_ITEMPOINTER;
@@ -263,7 +268,8 @@ bool DataTable::InstallVersion(const AbstractTuple *tuple,
 
 ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple,
                                    concurrency::Transaction *transaction,
-                                   ItemPointer **index_entry_ptr) {
+                                   ItemPointer **index_entry_ptr,
+                                   oid_t schema_version) {
   // the upper layer may not pass a index_entry_ptr (default value: nullptr)
   // into the function.
   // in this case, we have to create a temp_ptr to hold the content.
@@ -273,7 +279,7 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple,
     index_entry_ptr = &temp_ptr;
   }
 
-  ItemPointer location = GetEmptyTupleSlot(tuple);
+  ItemPointer location = GetEmptyTupleSlot(tuple, schema_version);
   if (location.block == INVALID_OID) {
     LOG_TRACE("Failed to get tuple slot.");
     return INVALID_ITEMPOINTER;
@@ -294,7 +300,7 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple,
   }
 
   // ForeignKey checks
-  if (CheckForeignKeyConstraints(tuple) == false) {
+  if (CheckForeignKeyConstraints(tuple, schema_version) == false) {
     LOG_TRACE("ForeignKey constraint violated");
     return INVALID_ITEMPOINTER;
   }
@@ -309,8 +315,9 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple,
 }
 
 // insert tuple into a table that is without index.
-ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple) {
-  ItemPointer location = GetEmptyTupleSlot(tuple);
+    ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple,
+                                       oid_t schema_version) {
+      ItemPointer location = GetEmptyTupleSlot(tuple, schema_version);
   if (location.block == INVALID_OID) {
     LOG_TRACE("Failed to get tuple slot.");
     return INVALID_ITEMPOINTER;
@@ -496,8 +503,8 @@ bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
  *
  * @returns True on success, false if any foreign key constraints fail
  */
-bool DataTable::CheckForeignKeyConstraints(const storage::Tuple *tuple
-                                               UNUSED_ATTRIBUTE) {
+    bool DataTable::CheckForeignKeyConstraints(const Tuple *tuple, oid_t schema_version) {
+      auto *schema = schema_chain_.Find(schema_version);
   for (auto foreign_key : foreign_keys_) {
     oid_t sink_table_id = foreign_key->GetSinkTableOid();
     storage::DataTable *ref_table = nullptr;
@@ -598,10 +605,11 @@ void DataTable::ResetDirty() { dirty_ = false; }
 //===--------------------------------------------------------------------===//
 
 TileGroup *DataTable::GetTileGroupWithLayout(
-    const column_map_type &partitioning) {
+    const column_map_type &partitioning, oid_t schema_version) {
   oid_t tile_group_id = catalog::Manager::GetInstance().GetNextTileGroupId();
   return (AbstractTable::GetTileGroupWithLayout(
-      database_oid, tile_group_id, partitioning, tuples_per_tilegroup_));
+      database_oid, tile_group_id, partitioning, tuples_per_tilegroup_,
+      schema_version));
 }
 
 oid_t DataTable::AddDefaultIndirectionArray(
@@ -620,20 +628,23 @@ oid_t DataTable::AddDefaultIndirectionArray(
   return indirection_array_id;
 }
 
-oid_t DataTable::AddDefaultTileGroup() {
+    oid_t DataTable::AddDefaultTileGroup(oid_t schema_version) {
   size_t active_tile_group_id = number_of_tuples_ % active_tilegroup_count_;
-  return AddDefaultTileGroup(active_tile_group_id);
+      return AddDefaultTileGroup(active_tile_group_id, schema_version);
 }
 
-oid_t DataTable::AddDefaultTileGroup(const size_t &active_tile_group_id) {
+    oid_t DataTable::AddDefaultTileGroup(const size_t &active_tile_group_id,
+                                         oid_t schema_version) {
   column_map_type column_map;
   oid_t tile_group_id = INVALID_OID;
 
   // Figure out the partitioning for given tilegroup layout
-  column_map = GetTileGroupLayout((LayoutType)peloton_layout_mode);
+      column_map =
+          GetTileGroupLayout((LayoutType) peloton_layout_mode, schema_version);
 
   // Create a tile group with that partitioning
-  std::shared_ptr<TileGroup> tile_group(GetTileGroupWithLayout(column_map));
+      std::shared_ptr<TileGroup> tile_group(
+          GetTileGroupWithLayout(column_map, schema_version));
   PL_ASSERT(tile_group.get());
 
   tile_group_id = tile_group->GetTileGroupId();
@@ -659,8 +670,11 @@ oid_t DataTable::AddDefaultTileGroup(const size_t &active_tile_group_id) {
   return tile_group_id;
 }
 
-void DataTable::AddTileGroupWithOidForRecovery(const oid_t &tile_group_id) {
+    void DataTable::AddTileGroupWithOidForRecovery(const oid_t &tile_group_id,
+                                                   oid_t schema_version) {
   PL_ASSERT(tile_group_id);
+      PL_ASSERT(schema_version < schema_chain_.GetSize());
+      auto *schema = schema_chain_.Find(schema_version);
 
   std::vector<catalog::Schema> schemas;
   schemas.push_back(*schema);
@@ -674,7 +688,7 @@ void DataTable::AddTileGroupWithOidForRecovery(const oid_t &tile_group_id) {
 
   std::shared_ptr<TileGroup> tile_group(TileGroupFactory::GetTileGroup(
       database_oid, table_oid, tile_group_id, this, schemas, column_map,
-      tuples_per_tilegroup_));
+      tuples_per_tilegroup_, schema_version));
 
   auto tile_groups_exists = tile_groups_.Contains(tile_group_id);
 
@@ -1014,8 +1028,8 @@ storage::TileGroup *DataTable::TransformTileGroup(
       TileGroupFactory::GetTileGroup(
           tile_group->GetDatabaseId(), tile_group->GetTableId(),
           tile_group->GetTileGroupId(), tile_group->GetAbstractTable(),
-          new_schema, default_partition_,
-          tile_group->GetAllocatedTupleCount()));
+          new_schema, default_partition_, tile_group->GetAllocatedTupleCount()),
+      tile_group->GetSchemaVersion());
 
   // Set the transformed tile group column-at-a-time
   SetTransformedTileGroup(tile_group.get(), new_tile_group.get());

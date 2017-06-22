@@ -76,7 +76,8 @@ class TileGroup : public Printable {
   // Tile group constructor
   TileGroup(BackendType backend_type, TileGroupHeader *tile_group_header,
             AbstractTable *table, const std::vector<catalog::Schema> &schemas,
-            const column_map_type &column_map, int tuple_count);
+            const column_map_type &column_map, int tuple_count,
+            oid_t schema_version);
 
   ~TileGroup();
 
@@ -149,6 +150,8 @@ class TileGroup : public Printable {
 
   oid_t GetTileGroupId() const;
 
+  oid_t GetSchemaVersion() const { return schema_version; }
+
   oid_t GetDatabaseId() const { return database_id; }
 
   oid_t GetTableId() const { return table_id; }
@@ -194,6 +197,7 @@ class TileGroup : public Printable {
   oid_t database_id;
   oid_t table_id;
   oid_t tile_group_id;
+  oid_t schema_version;
 
   // Backend type
   BackendType backend_type;

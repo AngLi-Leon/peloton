@@ -44,6 +44,7 @@ class DeleteExecutor : public AbstractExecutor {
 
  private:
   storage::DataTable *target_table_ = nullptr;
+  oid_t schema_version_ = INVALID_OID;
 };
 
 }  // namespace executor

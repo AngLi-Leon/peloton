@@ -138,7 +138,7 @@ void ExecuteTileGroupTest() {
 
     ItemPointer *index_entry_ptr = nullptr;
     ItemPointer tuple_slot_id =
-        table->InsertTuple(&tuple, txn, &index_entry_ptr);
+        table->InsertTuple(&tuple, txn, &index_entry_ptr, 0);
 
     EXPECT_TRUE(tuple_slot_id.block != INVALID_OID);
     EXPECT_TRUE(tuple_slot_id.offset != INVALID_OID);

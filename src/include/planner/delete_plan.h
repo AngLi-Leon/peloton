@@ -50,6 +50,8 @@ class DeletePlan : public AbstractPlan {
 
   storage::DataTable *GetTable() const { return target_table_; }
 
+  oid_t GetSchemaVersion() const { return schema_version_; }
+
   const std::string GetInfo() const override { return "DeletePlan"; }
 
   void SetParameterValues(std::vector<type::Value> *values) override;
@@ -68,6 +70,9 @@ class DeletePlan : public AbstractPlan {
 
   /** @brief Target table. */
   storage::DataTable *target_table_ = nullptr;
+
+  // TODO: set this schema_version to valid value
+  oid_t schema_version_ = START_OID;
 
   // TODO: should be deleted after refacor
   std::string table_name_;

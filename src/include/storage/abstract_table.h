@@ -132,9 +132,11 @@ class AbstractTable : public Printable {
 
   TileGroup *GetTileGroupWithLayout(oid_t database_id, oid_t tile_group_id,
                                     const column_map_type &partitioning,
-                                    const size_t num_tuples);
+                                    const size_t num_tuples,
+                                    oid_t schema_version);
 
-  column_map_type GetTileGroupLayout(LayoutType layout_type) const;
+  column_map_type GetTileGroupLayout(LayoutType layout_type,
+                                     oid_t schema_version) const;
 
   //===--------------------------------------------------------------------===//
   // MEMBERS
@@ -142,8 +144,8 @@ class AbstractTable : public Printable {
 
   oid_t table_oid;
 
-  // table schema
-  catalog::Schema *schema;
+  // table schema chain
+  LockFreeArray<catalog::Schema *> schema_chain_;
 
   /**
    * @brief Should this table own the schema?

@@ -113,12 +113,14 @@ oid_t TempTable::AddDefaultTileGroup() {
 
   // Figure out the partitioning for given tilegroup layout
   column_map =
-      AbstractTable::GetTileGroupLayout((LayoutType)peloton_layout_mode);
+      AbstractTable::GetTileGroupLayout((LayoutType) peloton_layout_mode, 0);
 
   // Create a tile group with that partitioning
+  // TODO: make sure using the correct schema_version
   std::shared_ptr<storage::TileGroup> tile_group(
-      AbstractTable::GetTileGroupWithLayout(
-          INVALID_OID, tile_group_id, column_map, TEMPTABLE_DEFAULT_SIZE));
+      AbstractTable::GetTileGroupWithLayout(INVALID_OID, tile_group_id,
+                                            column_map, TEMPTABLE_DEFAULT_SIZE,
+                                            START_OID));
   PL_ASSERT(tile_group.get());
 
   tile_groups_.push_back(tile_group);
