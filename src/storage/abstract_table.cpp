@@ -26,18 +26,22 @@ namespace storage {
 
 AbstractTable::AbstractTable(id_t table_oid, catalog::Schema *schema,
                              bool own_schema)
-    : table_oid(table_oid), schema(schema), own_schema_(own_schema) {}
+    : table_oid(table_oid), own_schema_(own_schema) {
+  schema_chain_.Append(schema);
+}
 
 AbstractTable::~AbstractTable() {
   // clean up schema
-  if (own_schema_) delete schema;
+  if (own_schema_) {
+    schema_chain_.Clear(nullptr);
+  }
 }
 
-column_map_type AbstractTable::GetTileGroupLayout(
-    LayoutType layout_type) const {
+  column_map_type AbstractTable::GetTileGroupLayout(LayoutType layout_type,
+                                                    oid_t schema_version) const {
   column_map_type column_map;
 
-  auto col_count = schema->GetColumnCount();
+    auto col_count = schema_chain_.Find(schema_version)->GetColumnCount();
 
   // pure row layout map
   if (layout_type == LAYOUT_TYPE_ROW) {
@@ -66,7 +70,7 @@ column_map_type AbstractTable::GetTileGroupLayout(
 
 TileGroup *AbstractTable::GetTileGroupWithLayout(
     oid_t database_id, oid_t tile_group_id, const column_map_type &partitioning,
-    const size_t num_tuples) {
+    const size_t num_tuples, oid_t schema_version) {
   std::vector<catalog::Schema> schemas;
 
   // Figure out the columns in each tile in new layout
@@ -78,16 +82,17 @@ TileGroup *AbstractTable::GetTileGroupWithLayout(
   // Build the schema tile at a time
   std::map<oid_t, std::vector<catalog::Column>> tile_schemas;
   for (auto entry : tile_column_map) {
-    tile_schemas[entry.first.first].push_back(schema->GetColumn(entry.second));
+    tile_schemas[entry.first.first].push_back(
+        schema_chain_.Find(schema_version)->GetColumn(entry.second));
   }
   for (auto entry : tile_schemas) {
     catalog::Schema tile_schema(entry.second);
     schemas.push_back(tile_schema);
   }
 
-  TileGroup *tile_group =
-      TileGroupFactory::GetTileGroup(database_id, GetOid(), tile_group_id, this,
-                                     schemas, partitioning, num_tuples);
+  TileGroup *tile_group = TileGroupFactory::GetTileGroup(
+      database_id, GetOid(), tile_group_id, this, schemas, partitioning,
+      num_tuples, schema_version);
 
   return tile_group;
 }

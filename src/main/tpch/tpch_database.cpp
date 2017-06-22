@@ -441,7 +441,7 @@ void TPCHDatabase::LoadPartTable() {
     tuple.SetValue(8, type::ValueFactory::GetVarcharValue(std::string{p, p_end}), pool.get());
 
     // Insert into table
-    ItemPointer tuple_slot_id = table.InsertTuple(&tuple);
+    ItemPointer tuple_slot_id = table.InsertTuple(&tuple, 0, nullptr, 0);
     PL_ASSERT(tuple_slot_id.block != INVALID_OID);
     PL_ASSERT(tuple_slot_id.offset != INVALID_OID);
     txn_manager.PerformInsert(txn, tuple_slot_id);
@@ -541,7 +541,7 @@ void TPCHDatabase::LoadCustomerTable() {
     tuple.SetValue(7, type::ValueFactory::GetVarcharValue(c_comment), pool.get());
 
     // Insert into table
-    ItemPointer tuple_slot_id = table.InsertTuple(&tuple);
+    ItemPointer tuple_slot_id = table.InsertTuple(&tuple, 0, nullptr, 0);
     PL_ASSERT(tuple_slot_id.block != INVALID_OID);
     PL_ASSERT(tuple_slot_id.offset != INVALID_OID);
     txn_manager.PerformInsert(txn, tuple_slot_id);
@@ -658,7 +658,7 @@ void TPCHDatabase::LoadLineitemTable() {
                    pool.get());
 
     // Insert into table
-    ItemPointer tuple_slot_id = table.InsertTuple(&tuple);
+    ItemPointer tuple_slot_id = table.InsertTuple(&tuple, 0, nullptr, 0);
     PL_ASSERT(tuple_slot_id.block != INVALID_OID);
     PL_ASSERT(tuple_slot_id.offset != INVALID_OID);
     txn_manager.PerformInsert(txn, tuple_slot_id);

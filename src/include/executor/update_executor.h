@@ -48,6 +48,7 @@ class UpdateExecutor : public AbstractExecutor {
 
  private:
   storage::DataTable *target_table_ = nullptr;
+  oid_t schema_version_ = INVALID_OID;
   const planner::ProjectInfo *project_info_ = nullptr;
 };
 

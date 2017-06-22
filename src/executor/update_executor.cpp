@@ -42,14 +42,17 @@ bool UpdateExecutor::DInit() {
   PL_ASSERT(children_.size() == 1);
   PL_ASSERT(target_table_ == nullptr);
   PL_ASSERT(project_info_ == nullptr);
+    PL_ASSERT(schema_version_ == INVALID_OID);
 
   // Grab settings from node
   const planner::UpdatePlan &node = GetPlanNode<planner::UpdatePlan>();
   target_table_ = node.GetTable();
   project_info_ = node.GetProjectInfo();
+    schema_version_ = node.GetSchemaVersion();
 
   PL_ASSERT(target_table_);
   PL_ASSERT(project_info_);
+    PL_ASSERT(schema_version_ != INVALID_OID);
 
   return true;
 }
@@ -68,7 +71,7 @@ bool UpdateExecutor::PerformUpdatePrimaryKey(bool is_owner,
   ///////////////////////////////////////
   // Delete tuple/version chain
   ///////////////////////////////////////
-  ItemPointer new_location = target_table_->InsertEmptyVersion();
+  ItemPointer new_location = target_table_->InsertEmptyVersion(schema_version_);
 
   // PerformUpdate() will not be executed if the insertion failed.
   // There is a write lock acquired, but since it is not in the write
@@ -106,7 +109,7 @@ bool UpdateExecutor::PerformUpdatePrimaryKey(bool is_owner,
   // insert tuple into the table.
   ItemPointer *index_entry_ptr = nullptr;
   peloton::ItemPointer location =
-      target_table_->InsertTuple(&new_tuple, current_txn, &index_entry_ptr);
+      target_table_->InsertTuple(&new_tuple, current_txn, &index_entry_ptr, 0);
 
   // it is possible that some concurrent transactions have inserted the
   // same tuple. In this case, abort the transaction.
@@ -269,7 +272,7 @@ bool UpdateExecutor::DExecute() {
           // insert a new version.
 
           // acquire a version slot from the table.
-          ItemPointer new_location = target_table_->AcquireVersion();
+          ItemPointer new_location = target_table_->AcquireVersion(schema_version_);
 
           auto &manager = catalog::Manager::GetInstance();
           auto new_tile_group = manager.GetTileGroup(new_location.block);

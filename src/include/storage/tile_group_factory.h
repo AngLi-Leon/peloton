@@ -33,7 +33,8 @@ class TileGroupFactory {
                                  oid_t tile_group_id, AbstractTable *table,
                                  const std::vector<catalog::Schema> &schemas,
                                  const column_map_type &column_map,
-                                 int tuple_count);
+                                 int tuple_count,
+                                 oid_t schema_version = START_OID);
 };
 
 }  // End storage namespace

@@ -235,7 +235,7 @@ void TestingExecutorUtil::PopulateTable(storage::DataTable *table, int num_rows,
 
     ItemPointer *index_entry_ptr = nullptr;
     ItemPointer tuple_slot_id =
-        table->InsertTuple(&tuple, current_txn, &index_entry_ptr);
+        table->InsertTuple(&tuple, current_txn, &index_entry_ptr, 0);
     PL_ASSERT(tuple_slot_id.block != INVALID_OID);
     PL_ASSERT(tuple_slot_id.offset != INVALID_OID);
 

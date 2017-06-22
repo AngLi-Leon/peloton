@@ -94,7 +94,7 @@ class DataTable : public AbstractTable {
   // TUPLE OPERATIONS
   //===--------------------------------------------------------------------===//
   // insert an empty version in table. designed for delete operation.
-  ItemPointer InsertEmptyVersion();
+  ItemPointer InsertEmptyVersion(oid_t schema_version);
 
   // these two functions are designed for reducing memory allocation by
   // performing in-place update.
@@ -103,7 +103,7 @@ class DataTable : public AbstractTable {
   // copy the content into the version. after that, we need to check constraints
   // and then install the version
   // into all the corresponding indexes.
-  ItemPointer AcquireVersion();
+  ItemPointer AcquireVersion(oid_t schema_version);
 
   // install an version in table. designed for update operation.
   // as we implement logical-pointer indexing mechanism, targets_ptr is
@@ -114,19 +114,20 @@ class DataTable : public AbstractTable {
 
   // insert tuple in table. the pointer to the index entry is returned as
   // index_entry_ptr.
-  ItemPointer InsertTuple(const Tuple *tuple,
+  ItemPointer InsertTuple(const storage::Tuple *tuple,
                           concurrency::Transaction *transaction,
-                          ItemPointer **index_entry_ptr = nullptr);
+                          ItemPointer **index_entry_ptr, oid_t schema_version);
   // designed for tables without primary key. e.g., output table used by
   // aggregate_executor.
-  ItemPointer InsertTuple(const Tuple *tuple);
+  ItemPointer InsertTuple(const storage::Tuple *tuple, oid_t schema_version);
 
   //===--------------------------------------------------------------------===//
   // TILE GROUP
   //===--------------------------------------------------------------------===//
 
   // coerce into adding a new tile group with a tile group id
-  void AddTileGroupWithOidForRecovery(const oid_t &tile_group_id);
+  void AddTileGroupWithOidForRecovery(const oid_t &tile_group_id,
+                                      oid_t schema_version);
 
   void AddTileGroup(const std::shared_ptr<TileGroup> &tile_group);
 
@@ -141,7 +142,8 @@ class DataTable : public AbstractTable {
   size_t GetTileGroupCount() const;
 
   // Get a tile group with given layout
-  TileGroup *GetTileGroupWithLayout(const column_map_type &partitioning);
+  TileGroup *GetTileGroupWithLayout(const column_map_type &partitioning,
+                                    oid_t schema_version);
 
   //===--------------------------------------------------------------------===//
   // INDEX
@@ -266,18 +268,21 @@ class DataTable : public AbstractTable {
   // INTEGRITY CHECKS
   //===--------------------------------------------------------------------===//
 
-  bool CheckNulls(const storage::Tuple *tuple) const;
+  bool CheckNulls(const storage::Tuple *tuple, oid_t schema_version) const;
 
-  bool CheckConstraints(const storage::Tuple *tuple) const;
+  bool CheckConstraints(const storage::Tuple *tuple,
+                        oid_t schema_version) const;
 
   // Claim a tuple slot in a tile group
-  ItemPointer GetEmptyTupleSlot(const storage::Tuple *tuple);
+  ItemPointer GetEmptyTupleSlot(const storage::Tuple *tuple,
+                                oid_t schema_version);
 
   // add a tile group to the table
-  oid_t AddDefaultTileGroup();
+  oid_t AddDefaultTileGroup(oid_t schema_version);
   // add a tile group to the table. replace the active_tile_group_id-th active
   // tile group.
-  oid_t AddDefaultTileGroup(const size_t &active_tile_group_id);
+  oid_t AddDefaultTileGroup(const size_t &active_tile_group_id,
+                            oid_t schema_version);
 
   oid_t AddDefaultIndirectionArray(const size_t &active_indirection_array_id);
 
@@ -294,7 +299,7 @@ class DataTable : public AbstractTable {
                                 ItemPointer *index_entry_ptr);
 
   // check the foreign key constraints
-  bool CheckForeignKeyConstraints(const storage::Tuple *tuple);
+  bool CheckForeignKeyConstraints(const Tuple *tuple, oid_t schema_version);
 
  public:
   static size_t default_active_tilegroup_count_;

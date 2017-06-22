@@ -18,11 +18,11 @@
 #include "common/container_tuple.h"
 #include "common/logger.h"
 #include "common/platform.h"
-#include "type/types.h"
 #include "storage/abstract_table.h"
 #include "storage/tile.h"
 #include "storage/tile_group_header.h"
 #include "storage/tuple.h"
+#include "type/types.h"
 
 namespace peloton {
 namespace storage {
@@ -30,10 +30,12 @@ namespace storage {
 TileGroup::TileGroup(BackendType backend_type,
                      TileGroupHeader *tile_group_header, AbstractTable *table,
                      const std::vector<catalog::Schema> &schemas,
-                     const column_map_type &column_map, int tuple_count)
+                     const column_map_type &column_map, int tuple_count,
+                     oid_t schema_version)
     : database_id(INVALID_OID),
       table_id(INVALID_OID),
       tile_group_id(INVALID_OID),
+      schema_version(schema_version),
       backend_type(backend_type),
       tile_schemas(schemas),
       tile_group_header(tile_group_header),
@@ -337,14 +339,12 @@ type::Value TileGroup::GetValue(oid_t tuple_id, oid_t column_id) {
   return GetTile(tile_offset)->GetValue(tuple_id, tile_column_id);
 }
 
-void TileGroup::SetValue(type::Value &value, oid_t tuple_id,
-                         oid_t column_id) {
+    void TileGroup::SetValue(type::Value &value, oid_t tuple_id, oid_t column_id) {
   PL_ASSERT(tuple_id < GetNextTupleSlot());
   oid_t tile_column_id, tile_offset;
   LocateTileAndColumn(column_id, tile_offset, tile_column_id);
   GetTile(tile_offset)->SetValue(value, tuple_id, tile_column_id);
 }
-
 
 std::shared_ptr<Tile> TileGroup::GetTileReference(
     const oid_t tile_offset) const {
@@ -389,6 +389,7 @@ const std::string TileGroup::GetInfo() const {
   os << "** TILE GROUP[#" << tile_group_id << "] **" << std::endl;
   os << "Database[" << database_id << "] // ";
   os << "Table[" << table_id << "] " << std::endl;
+  os << "Schema_version[" << schema_version << "] " << std::endl;
   os << (*tile_group_header) << std::endl;
 
   for (oid_t tile_itr = 0; tile_itr < tile_count; tile_itr++) {

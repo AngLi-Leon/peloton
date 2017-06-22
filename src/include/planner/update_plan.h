@@ -65,6 +65,8 @@ class UpdatePlan : public AbstractPlan {
 
   storage::DataTable *GetTable() const { return target_table_; }
 
+  oid_t GetSchemaVersion() const { return schema_version_; }
+
   const std::string GetInfo() const { return "UpdatePlan"; }
 
   void SetParameterValues(std::vector<type::Value> *values);
@@ -83,6 +85,9 @@ class UpdatePlan : public AbstractPlan {
 
   /** @brief Target table. */
   storage::DataTable *target_table_;
+
+  // TODO: set this schema_version to valid value
+  oid_t schema_version_ = START_OID;
 
   /** @brief Projection info */
   std::unique_ptr<const planner::ProjectInfo> project_info_;
