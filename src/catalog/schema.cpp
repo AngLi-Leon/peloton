@@ -21,6 +21,7 @@
 namespace peloton {
 namespace catalog {
 
+// Construct schema from vector of Column
 Schema::Schema(const std::vector<Column> &columns) : tuple_is_inlined(true) {
   oid_t column_offset = 0;
   for (oid_t physical_id = 0; physical_id < columns.size(); physical_id++) {
