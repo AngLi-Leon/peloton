@@ -13,31 +13,29 @@
 #include "type/varlen_type.h"
 
 #include <boost/functional/hash_fwd.hpp>
+#include "type/abstract_pool.h"
 #include "type/boolean_type.h"
 #include "type/type_util.h"
 #include "type/value_factory.h"
-#include "type/abstract_pool.h"
 
 namespace peloton {
 namespace type {
 
-#define VARLEN_COMPARE_FUNC(OP) \
-  const char *str1 = left.GetData(); \
-  uint32_t len1 = GetLength(left) - 1; \
-  const char *str2; \
-  uint32_t len2; \
-  if (right.GetTypeId() == TypeId::VARCHAR) { \
-    str2 = right.GetData(); \
-    len2 = GetLength(right) - 1; \
-    return GetCmpBool(TypeUtil::CompareStrings(str1, len1, \
-                                               str2, len2) OP 0); \
-  } else { \
-    auto r_value = right.CastAs(TypeId::VARCHAR); \
-    str2 = r_value.GetData(); \
-    len2 = GetLength(r_value) - 1; \
-    return GetCmpBool(TypeUtil::CompareStrings(str1, len1, \
-                                               str2, len2) OP 0); \
-  } \
+#define VARLEN_COMPARE_FUNC(OP)                                               \
+  const char *str1 = left.GetData();                                          \
+  uint32_t len1 = GetLength(left) - 1;                                        \
+  const char *str2;                                                           \
+  uint32_t len2;                                                              \
+  if (right.GetTypeId() == Type::VARCHAR) {                                   \
+    str2 = right.GetData();                                                   \
+    len2 = GetLength(right) - 1;                                              \
+    return GetCmpBool(TypeUtil::CompareStrings(str1, len1, str2, len2) OP 0); \
+  } else {                                                                    \
+    auto r_value = right.CastAs(Type::VARCHAR);                               \
+    str2 = r_value.GetData();                                                 \
+    len2 = GetLength(r_value) - 1;                                            \
+    return GetCmpBool(TypeUtil::CompareStrings(str1, len1, str2, len2) OP 0); \
+  }
 
 VarlenType::VarlenType(TypeId type) : Type(type) {}
 
@@ -128,22 +126,18 @@ CmpBool VarlenType::CompareGreaterThanEquals(const Value &left,
   VARLEN_COMPARE_FUNC(>=);
 }
 
-Value VarlenType::Min(const Value& left, const Value& right) const {
-    PL_ASSERT(left.CheckComparable(right));
-    if (left.IsNull() || right.IsNull())
-        return left.OperateNull(right);
-    if (left.CompareLessThan(right) == CMP_TRUE)
-        return left.Copy();
-    return right.Copy();
+Value VarlenType::Min(const Value &left, const Value &right) const {
+  PL_ASSERT(left.CheckComparable(right));
+  if (left.IsNull() || right.IsNull()) return left.OperateNull(right);
+  if (left.CompareLessThan(right) == CMP_TRUE) return left.Copy();
+  return right.Copy();
 }
 
-Value VarlenType::Max(const Value& left, const Value& right) const {
-    PL_ASSERT(left.CheckComparable(right));
-    if (left.IsNull() || right.IsNull())
-        return left.OperateNull(right);
-    if (left.CompareGreaterThan(right) == CMP_TRUE)
-        return left.Copy();
-    return right.Copy();
+Value VarlenType::Max(const Value &left, const Value &right) const {
+  PL_ASSERT(left.CheckComparable(right));
+  if (left.IsNull() || right.IsNull()) return left.OperateNull(right);
+  if (left.CompareGreaterThan(right) == CMP_TRUE) return left.Copy();
+  return right.Copy();
 }
 
 std::string VarlenType::ToString(const Value &val) const {
