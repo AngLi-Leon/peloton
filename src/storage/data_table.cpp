@@ -390,6 +390,9 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
     std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
     key->SetFromTuple(tuple, indexed_columns, index->GetPool());
 
+    LOG_INFO("key info is %s", key->GetInfo().c_str());
+    LOG_INFO("location info is %d and %d", (int)location.block,
+             (int)location.offset);
     switch (index->GetIndexType()) {
       case IndexConstraintType::PRIMARY_KEY:
       case IndexConstraintType::UNIQUE: {

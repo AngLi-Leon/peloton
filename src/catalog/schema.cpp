@@ -51,7 +51,7 @@ Schema::Schema(const std::vector<Column> &columns) : tuple_is_inlined(true) {
     column_offset += column.GetFixedLength();
 
     // add column
-    this->columns.push_back(column);
+    this->columns.push_back(std::move(column));
   }
 }
 

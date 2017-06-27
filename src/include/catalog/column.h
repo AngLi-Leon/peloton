@@ -121,7 +121,7 @@ class Column : public Printable {
 
   // logical column id (This id should remain the same after alter table)
   //                   (dropped column id cannot be reused)
-  oid_t logical_id;
+  oid_t logical_id = 0;
 
   // if the column is inlined, this is set to 0
   // else, it is set to length of the variable length column
@@ -143,5 +143,5 @@ class Column : public Printable {
   std::vector<Constraint> constraints;
 };
 
-}  // End catalog namespace
-}  // End peloton namespace
+}  // namespace catalog
+}  // namespace peloton
