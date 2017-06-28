@@ -25,7 +25,7 @@ namespace catalog {
 Schema::Schema(const std::vector<Column> &columns) : tuple_is_inlined(true) {
   oid_t column_offset = 0;
   for (oid_t physical_id = 0; physical_id < columns.size(); physical_id++) {
-    auto column = columns[physical_id];
+    Column column = columns[physical_id];
 
     // handle uninlined column
     if (column.IsInlined() == false) {
@@ -53,6 +53,8 @@ Schema::Schema(const std::vector<Column> &columns) : tuple_is_inlined(true) {
     // add column
     this->columns.push_back(std::move(column));
   }
+  // set tuple length
+  length = column_offset;
 }
 
 // Copy schema
