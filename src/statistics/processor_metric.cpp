@@ -31,7 +31,11 @@ double ProcessorMetric::GetMilliSec(struct timeval time) const {
 
 void ProcessorMetric::UpdateTimeInt(double &user_time, double &system_time) {
   struct rusage usage;
+#ifdef RUSAGE_THREAD  // RUSAGE_THREAD is Linux-specific.
   int ret = getrusage(RUSAGE_THREAD, &usage);
+#else
+  int ret = -1;
+#endif
   if (ret != 0) {
     throw StatException("Error getting resource usage");
   }

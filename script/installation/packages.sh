@@ -17,7 +17,7 @@ fi
 # For everything else (or if above failed), just use generic identifier
 [ "$DISTRO" == "" ] && export DISTRO=$UNAME
 unset UNAME
-DISTRO=${DISTRO^^}
+DISTRO=$(echo $DISTRO | tr "[:lower:]" "[:upper:]")
 TMPDIR=/tmp
 
 function install_repo_package() {
@@ -156,7 +156,40 @@ elif [[ "$DISTRO" == *"REDHAT"* ]] && [[ "${DISTRO_VER%.*}" == "7" ]]; then
     for pkg_path in ${PKGS[@]}; do
         install_package $pkg_path
     done
-   
+
+## ------------------------------------------------
+## DARWIN (OSX)
+## ------------------------------------------------
+elif [ "$DISTRO" = "DARWIN" ]; then
+    if test ! $(which brew); then
+      echo "Installing homebrew..."
+      ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    fi
+
+    # todo:
+#    sudo apt-get --force-yes --ignore-missing -y install \
+#        git \
+#        g++ \
+#        cmake \
+#        libgflags-dev \
+#        libprotobuf-dev \
+#        protobuf-compiler \
+#        bison \
+#        flex \
+#        libevent-dev \
+#        libboost-dev \
+#        libboost-thread-dev \
+#        libboost-filesystem-dev \
+#        libjemalloc-dev \
+#        valgrind \
+#        lcov \
+#        libpqxx-dev \
+#        llvm-3.7 \
+#        libedit-dev \
+#        postgresql-client
+
+    export LLVM_DIR=`llvm-config-3.7 --prefix`/share/llvm/cmake
+
 ## ------------------------------------------------
 ## UNKNOWN
 ## ------------------------------------------------
