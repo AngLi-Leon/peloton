@@ -40,10 +40,10 @@ AlterTablePlan::AlterTablePlan(parser::AlterTableStatement *parse_tree) {
   if (parse_tree->type == AlterTableType::COLUMN) {
     // Add columns: traverse through vector of ColumnDefinition
     for (auto col : *parse_tree->columns) {
-      type::Type::TypeId val = col->GetValueType(col->type);
+      type::TypeId val = col->GetValueType(col->type);
       LOG_TRACE("Column name: %s", col->name);
 
-      bool is_inline = (val == type::Type::VARCHAR) ? false : true;
+      bool is_inline = (val == type::TypeId::VARCHAR) ? false : true;
       auto column = catalog::Column(val, type::Type::GetTypeSize(val),
                                     std::string(col->name), is_inline);
       LOG_TRACE("Column is_line: %d", is_inline);

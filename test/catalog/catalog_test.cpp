@@ -176,11 +176,11 @@ TEST_F(CatalogTests, AlteringTable) {
 
   // second step alter table: add a new column
   auto id_column =
-      catalog::Column(type::Type::INTEGER,
-                      type::Type::GetTypeSize(type::Type::INTEGER), "id", true);
-  auto name_column = catalog::Column(type::Type::VARCHAR, 32, "name", false);
+      catalog::Column(type::TypeId::INTEGER,
+                      type::Type::GetTypeSize(type::TypeId::INTEGER), "id", true);
+  auto name_column = catalog::Column(type::TypeId::VARCHAR, 32, "name", false);
   auto new_column = catalog::Column(
-      type::Type::BOOLEAN, type::Type::GetTypeSize(type::Type::BOOLEAN),
+      type::TypeId::BOOLEAN, type::Type::GetTypeSize(type::TypeId::BOOLEAN),
       "new_column", true);
   std::unique_ptr<catalog::Schema> new_schema(
       new catalog::Schema({id_column, name_column, new_column}));

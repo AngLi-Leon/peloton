@@ -39,6 +39,7 @@ class Transaction : public Printable {
               const IsolationLevelType isolation,
               const cid_t &read_id) {
     Init(thread_id, isolation, read_id);
+  }
 
   Transaction(const size_t thread_id,
               const IsolationLevelType isolation,

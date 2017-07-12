@@ -69,55 +69,70 @@ struct ColumnDefinition {
     VARBINARY
   };
 
-  enum FKConstrActionType { NOACTION, RESTRICT, CASCADE, SETNULL, SETDEFAULT };
+  enum FKConstrActionType {
+    NOACTION,
+    RESTRICT,
+    CASCADE,
+    SETNULL,
+    SETDEFAULT
+  };
 
-  enum FKConstrMatchType { SIMPLE, PARTIAL, FULL };
+  enum FKConstrMatchType {
+    SIMPLE,
+    PARTIAL,
+    FULL
+  };
 
   ColumnDefinition(DataType type) : type(type) {
     // Set varlen to TEXT_MAX_LENGTH if the data type is TEXT
-    if (type == TEXT) varlen = type::PELOTON_TEXT_MAX_LEN;
+    if (type == TEXT)
+      varlen = type::PELOTON_TEXT_MAX_LEN;
   }
 
   ColumnDefinition(char* name, DataType type) : name(name), type(type) {
     // Set varlen to TEXT_MAX_LENGTH if the data type is TEXT
-    if (type == TEXT) varlen = type::PELOTON_TEXT_MAX_LEN;
+    if (type == TEXT)
+      varlen = type::PELOTON_TEXT_MAX_LEN;
   }
 
   virtual ~ColumnDefinition() {
     if (primary_key) {
-      for (auto key : *primary_key) delete[](key);
+      for (auto key : *primary_key) delete[] (key);
       delete primary_key;
     }
 
     if (foreign_key_source) {
-      for (auto key : *foreign_key_source) delete[](key);
+      for (auto key : *foreign_key_source) delete[] (key);
       delete foreign_key_source;
     }
     if (foreign_key_sink) {
-      for (auto key : *foreign_key_sink) delete[](key);
+      for (auto key : *foreign_key_sink) delete[] (key);
       delete foreign_key_sink;
     }
     delete[] name;
-    if (table_info_ != nullptr) delete table_info_;
-    if (default_value != nullptr) delete default_value;
-    if (check_expression != nullptr) delete check_expression;
+    if (table_info_ != nullptr)
+      delete table_info_;
+    if (default_value != nullptr)
+      delete default_value;
+    if (check_expression != nullptr)
+      delete check_expression;
   }
 
-  static type::Type::TypeId GetValueType(DataType type) {
+  static type::TypeId GetValueType(DataType type) {
     switch (type) {
       case INT:
       case INTEGER:
-        return type::Type::INTEGER;
+        return type::TypeId::INTEGER;
         break;
 
       case TINYINT:
-        return type::Type::TINYINT;
+        return type::TypeId::TINYINT;
         break;
       case SMALLINT:
-        return type::Type::SMALLINT;
+        return type::TypeId::SMALLINT;
         break;
       case BIGINT:
-        return type::Type::BIGINT;
+        return type::TypeId::BIGINT;
         break;
 
       // case DOUBLE:
@@ -128,11 +143,11 @@ struct ColumnDefinition {
       case DECIMAL:
       case DOUBLE:
       case FLOAT:
-        return type::Type::DECIMAL;
+        return type::TypeId::DECIMAL;
         break;
 
       case BOOLEAN:
-        return type::Type::BOOLEAN;
+        return type::TypeId::BOOLEAN;
         break;
 
       // case ADDRESS:
@@ -140,24 +155,24 @@ struct ColumnDefinition {
       //  break;
 
       case TIMESTAMP:
-        return type::Type::TIMESTAMP;
+        return type::TypeId::TIMESTAMP;
         break;
 
       case CHAR:
       case TEXT:
       case VARCHAR:
-        return type::Type::VARCHAR;
+        return type::TypeId::VARCHAR;
         break;
 
       case VARBINARY:
-        return type::Type::VARBINARY;
+        return type::TypeId::VARBINARY;
         break;
 
       case INVALID:
       case PRIMARY:
       case FOREIGN:
       default:
-        return type::Type::INVALID;
+        return type::TypeId::INVALID;
         break;
     }
   }

@@ -625,8 +625,6 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
     // STEP 3
     TableCatalog::GetInstance()->DeleteTable(table_oid, txn);
     // STEP 4, erase record in datatbase, but keep object
-    txn->RecordDropedTable(GetTableWithOid(database_oid, table_oid));
-    auto database = GetDatabaseWithOid(database_oid);
     database->DropTableWithOid(table_oid);
 
     return ResultType::SUCCESS;
@@ -769,7 +767,6 @@ storage::DataTable *Catalog::GetTableWithName(const std::string &database_name,
 }
 
 //===--------------------------------------------------------------------===//
-}
 
 #ifdef ENABLE_ALTERTABLE
 
@@ -781,7 +778,8 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
   if (txn == nullptr)
     throw CatalogException("Alter table requires transaction");
   try {
-    auto database = GetDatabaseWithOid(database_oid);
+    auto storage_manager = storage::StorageManager::GetInstance();
+    auto database = storage_manager->GetDatabaseWithOid(database_oid);
     try {
       auto old_table = database->GetTableWithOid(table_oid);
       auto old_schema = old_table->GetSchema();
@@ -926,7 +924,7 @@ ResultType Catalog::AlterTable(oid_t database_oid, oid_t table_oid,
     return ResultType::FAILURE;
   }
   return ResultType::SUCCESS;
-
+}
 #endif
 // DEPRECATED
 //===--------------------------------------------------------------------===//

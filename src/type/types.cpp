@@ -2274,7 +2274,7 @@ CheckpointingType StringToCheckpointingType(const std::string& str) {
   else {
     throw ConversionException(StringUtil::Format(
         StringUtil::Format("No CheckpointingType conversion from string '%s'",
-                           upper_str.c_str()));
+                           upper_str.c_str())));
   }
   return CheckpointingType::INVALID;
 }
