@@ -48,7 +48,7 @@ class TableCatalog : public AbstractCatalog {
   //===--------------------------------------------------------------------===//
   bool InsertTable(oid_t table_oid, const std::string &table_name,
                    oid_t database_oid, type::AbstractPool *pool,
-                   concurrency::Transaction *txn);
+                   concurrency::Transaction *txn, oid_t version_oid = 0);
   bool DeleteTable(oid_t table_oid, concurrency::Transaction *txn);
 
   //===--------------------------------------------------------------------===//
@@ -71,5 +71,5 @@ class TableCatalog : public AbstractCatalog {
   std::unique_ptr<catalog::Schema> InitializeSchema();
 };
 
-}  // End catalog namespace
-}  // End peloton namespace
+}  // namespace catalog
+}  // namespace peloton

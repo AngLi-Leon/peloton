@@ -43,7 +43,7 @@ Schema::Schema(const std::vector<Column> &columns) : tuple_is_inlined(true) {
     if (it == logic2physic.end()) {
       logic2physic[logical_id] = physical_id;
     } else {
-      LOG_ERROR("Duplicated oid %d when creating schema!", (int)logical_id);
+      LOG_TRACE("Duplicated oid %d when creating schema!", (int)logical_id);
     }
 
     // set column offset

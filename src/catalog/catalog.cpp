@@ -14,15 +14,15 @@
 #include <iostream>
 
 #include "catalog/database_metrics_catalog.h"
+#include "catalog/index_metrics_catalog.h"
 #include "catalog/manager.h"
 #include "catalog/query_metrics_catalog.h"
 #include "catalog/table_metrics_catalog.h"
-#include "catalog/index_metrics_catalog.h"
 #include "common/exception.h"
 #include "common/macros.h"
 #include "expression/date_functions.h"
-#include "expression/string_functions.h"
 #include "expression/decimal_functions.h"
+#include "expression/string_functions.h"
 #include "index/index_factory.h"
 #include "storage/storage_manager.h"
 #include "util/string_util.h"
@@ -37,11 +37,11 @@ Catalog *Catalog::GetInstance(void) {
 }
 
 /* Initialization of catalog, including:
-* 1) create pg_catalog database, create catalog tables, add them into
-* pg_catalog database, insert columns into pg_attribute
-* 2) create necessary indexes, insert into pg_index
-* 3) insert pg_catalog into pg_database, catalog tables into pg_table
-*/
+ * 1) create pg_catalog database, create catalog tables, add them into
+ * pg_catalog database, insert columns into pg_attribute
+ * 2) create necessary indexes, insert into pg_index
+ * 3) insert pg_catalog into pg_database, catalog tables into pg_table
+ */
 Catalog::Catalog() : pool_(new type::EphemeralPool()) {
   // Begin transaction for catalog initialization
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
@@ -185,12 +185,12 @@ ResultType Catalog::CreateDatabase(const std::string &database_name,
 }
 
 /*@brief   create table
-* @param   database_name    the database which the table belongs to
-* @param   table_name       name of the table to add index on
-* @param   schema           schema, a.k.a metadata of the table
-* @param   txn              Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * @param   database_name    the database which the table belongs to
+ * @param   table_name       name of the table to add index on
+ * @param   schema           schema, a.k.a metadata of the table
+ * @param   txn              Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::CreateTable(const std::string &database_name,
                                 const std::string &table_name,
                                 std::unique_ptr<catalog::Schema> schema,
@@ -216,69 +216,60 @@ ResultType Catalog::CreateTable(const std::string &database_name,
   oid_t table_oid =
       TableCatalog::GetInstance()->GetTableOid(table_name, database_oid, txn);
   if (table_oid != INVALID_OID) {
-    LOG_TRACE("Cannot find the table %s in pg_table", table_name.c_str());
-    return ResultType::FAILURE;
+    throw CatalogException("Can't create duplicate table " + table_name);
   }
 
   auto storage_manager = storage::StorageManager::GetInstance();
-  try {
-    auto database = storage_manager->GetDatabaseWithOid(database_oid);
 
-    // Check duplicate column names
-    std::set<std::string> column_names;
-    auto columns = schema.get()->GetColumns();
+  auto database = storage_manager->GetDatabaseWithOid(database_oid);
 
-    for (auto column : columns) {
-      auto column_name = column.GetName();
-      if (column_names.count(column_name) == 1) {
-        LOG_TRACE(
-            "Can't create table %s with duplicate column names. RESULT_FAILURE",
-            table_name.c_str());
-        return ResultType::FAILURE;
-      }
-      column_names.insert(column_name);
+  // Check duplicate column names
+  std::set<std::string> column_names;
+  auto columns = schema.get()->GetColumns();
+
+  for (auto column : columns) {
+    auto column_name = column.GetName();
+    if (column_names.count(column_name) == 1) {
+      throw CatalogException("Can't create table " + table_name +
+                             "with duplicate columns");
     }
-
-    // Create actual table
-    auto pg_table = TableCatalog::GetInstance();
-    table_oid = pg_table->GetNextOid();
-    bool own_schema = true;
-    bool adapt_table = false;
-    auto table = storage::TableFactory::GetDataTable(
-        database_oid, table_oid, schema.release(), table_name,
-        DEFAULT_TUPLES_PER_TILEGROUP, own_schema, adapt_table, is_catalog);
-    database->AddTable(table, is_catalog);
-
-    // Update pg_table with table info
-    pg_table->InsertTable(table_oid, table_name, database_oid, pool_.get(),
-                          txn);
-    oid_t column_id = 0;
-    for (auto column : table->GetSchema()->GetColumns()) {
-      ColumnCatalog::GetInstance()->InsertColumn(
-          table_oid, column.GetName(), column_id, column.GetOffset(),
-          column.GetType(), column.IsInlined(), column.GetConstraints(),
-          pool_.get(), txn);
-      column_id++;
-    }
-
-    CreatePrimaryIndex(database_oid, table_oid, txn);
-
-    return ResultType::SUCCESS;
-  } catch (CatalogException &e) {
-    LOG_TRACE("Can't found database %s. Return RESULT_FAILURE",
-              database_name.c_str());
-    return ResultType::FAILURE;
+    column_names.insert(column_name);
   }
+
+  // Create actual table
+  auto pg_table = TableCatalog::GetInstance();
+  table_oid = pg_table->GetNextOid();
+  bool own_schema = true;
+  bool adapt_table = false;
+  auto table = storage::TableFactory::GetDataTable(
+      database_oid, table_oid, schema.release(), table_name,
+      DEFAULT_TUPLES_PER_TILEGROUP, own_schema, adapt_table, is_catalog);
+  database->AddTable(table, is_catalog);
+
+  // Update pg_table with table info
+  pg_table->InsertTable(table_oid, table_name, database_oid, pool_.get(), txn);
+  oid_t column_id = 0;
+  for (auto column : table->GetSchema()->GetColumns()) {
+    ColumnCatalog::GetInstance()->InsertColumn(
+        table_oid, column.GetName(), column_id, column.GetOffset(),
+        column.GetType(), column.IsInlined(), column.GetConstraints(),
+        pool_.get(), txn);
+    column_id++;
+  }
+
+  CreatePrimaryIndex(database_oid, table_oid, txn);
+
+  return ResultType::SUCCESS;
 }
 
 /*@brief   create primary index on table
-* Note that this is a catalog helper function only called within catalog.cpp
-* If you want to create index on table outside, call CreateIndex() instead
-* @param   database_oid     the database which the indexed table belongs to
-* @param   table_oid        oid of the table to add index on
-* @param   txn              Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * Note that this is a catalog helper function only called within catalog.cpp
+ * If you want to create index on table outside, call CreateIndex() instead
+ * @param   database_oid     the database which the indexed table belongs to
+ * @param   table_oid        oid of the table to add index on
+ * @param   txn              Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::CreatePrimaryIndex(oid_t database_oid, oid_t table_oid,
                                        concurrency::Transaction *txn) {
   if (txn == nullptr) {
@@ -340,30 +331,25 @@ ResultType Catalog::CreatePrimaryIndex(oid_t database_oid, oid_t table_oid,
 
       return ResultType::SUCCESS;
     } catch (CatalogException &e) {
-      LOG_TRACE(
-          "Cannot find the table %d to create the primary key index. Return "
-          "RESULT_FAILURE.",
-          table_oid);
       return ResultType::FAILURE;
     }
   } catch (CatalogException &e) {
-    LOG_TRACE("Could not find a database with oid %d", database_oid);
     return ResultType::FAILURE;
   }
 }
 
 /*@brief   create index on table
-* @param   database_name    the database which the indexed table belongs to
-* @param   table_name       name of the table to add index on
-* @param   index_attr       collection of the indexed attribute(column) name
-* @param   index_name       name of the table to add index on
-* @param   unique_keys      index supports duplicate key or not
-* @param   index_type       the type of index(default value is BWTREE)
-* @param   txn              Transaction
-* @param   is_catalog       index is built on catalog table or not(useful in
-* catalog table Initialization)
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * @param   database_name    the database which the indexed table belongs to
+ * @param   table_name       name of the table to add index on
+ * @param   index_attr       collection of the indexed attribute(column) name
+ * @param   index_name       name of the table to add index on
+ * @param   unique_keys      index supports duplicate key or not
+ * @param   index_type       the type of index(default value is BWTREE)
+ * @param   txn              Transaction
+ * @param   is_catalog       index is built on catalog table or not(useful in
+ * catalog table Initialization)
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::CreateIndex(const std::string &database_name,
                                 const std::string &table_name,
                                 const std::vector<std::string> &index_attr,
@@ -487,17 +473,9 @@ ResultType Catalog::CreateIndex(oid_t database_oid, oid_t table_oid,
 
       return ResultType::SUCCESS;
     } catch (CatalogException &e) {
-      LOG_TRACE(
-          "Cannot find the table %d to create the index. Return "
-          "RESULT_FAILURE.",
-          table_oid);
       return ResultType::FAILURE;
     }
   } catch (CatalogException &e) {
-    LOG_TRACE(
-        "Cannot find the database %d to create the index. Return "
-        "RESULT_FAILURE.",
-        database_oid);
     return ResultType::FAILURE;
   }
 }
@@ -507,8 +485,8 @@ ResultType Catalog::CreateIndex(oid_t database_oid, oid_t table_oid,
 //===----------------------------------------------------------------------===//
 
 /*
-* only for test purposes
-*/
+ * only for test purposes
+ */
 ResultType Catalog::DropDatabaseWithName(const std::string &database_name,
                                          concurrency::Transaction *txn) {
   if (txn == nullptr) {
@@ -563,16 +541,16 @@ ResultType Catalog::DropDatabaseWithOid(oid_t database_oid,
 }
 
 /*@brief   Drop table
-* 1. drop all the indexes on actual table, and drop index records in pg_index
-* 2. drop all the columns records in pg_attribute
-* 3. drop table record in pg_table
-* 4. delete actual table(storage level), cleanup schema, foreign keys,
-* tile_groups
-* @param   database_name    the database which the dropped table belongs to
-* @param   table_name       the dropped table name
-* @param   txn              Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * 1. drop all the indexes on actual table, and drop index records in pg_index
+ * 2. drop all the columns records in pg_attribute
+ * 3. drop table record in pg_table
+ * 4. delete actual table(storage level), cleanup schema, foreign keys,
+ * tile_groups
+ * @param   database_name    the database which the dropped table belongs to
+ * @param   table_name       the dropped table name
+ * @param   txn              Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::DropTable(const std::string &database_name,
                               const std::string &table_name,
                               concurrency::Transaction *txn) {
@@ -629,16 +607,15 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
 
     return ResultType::SUCCESS;
   } catch (CatalogException &e) {
-    LOG_TRACE("Can't find database %d! Return RESULT_FAILURE", database_oid);
     return ResultType::FAILURE;
   }
 }
 
 /*@brief   Drop Index on table
-* @param   index_oid      the oid of the index to be dropped
-* @param   txn            Transaction
-* @return  Transaction ResultType(SUCCESS or FAILURE)
-*/
+ * @param   index_oid      the oid of the index to be dropped
+ * @param   txn            Transaction
+ * @return  Transaction ResultType(SUCCESS or FAILURE)
+ */
 ResultType Catalog::DropIndex(oid_t index_oid, concurrency::Transaction *txn) {
   if (txn == nullptr) {
     LOG_TRACE("Do not have transaction to drop index: %d", (int)index_oid);
@@ -675,15 +652,9 @@ ResultType Catalog::DropIndex(oid_t index_oid, concurrency::Transaction *txn) {
 
       return ResultType::SUCCESS;
     } catch (CatalogException &e) {
-      LOG_TRACE(
-          "Can't find the table %d to drop the index. Return RESULT_FAILURE.",
-          (int)table_oid);
       return ResultType::FAILURE;
     }
   } catch (CatalogException &e) {
-    LOG_TRACE(
-        "Can't found database %d to drop the index. Return RESULT_FAILURE",
-        (int)database_oid);
     return ResultType::FAILURE;
   }
 }
@@ -823,9 +794,10 @@ void Catalog::InitializeFunctions() {
               expression::StringFunctions::Ascii);
   AddFunction("chr", {type::TypeId::INTEGER}, type::TypeId::VARCHAR,
               expression::StringFunctions::Chr);
-  AddFunction("substr", {type::TypeId::VARCHAR, type::TypeId::INTEGER,
-                         type::TypeId::INTEGER},
-              type::TypeId::VARCHAR, expression::StringFunctions::Substr);
+  AddFunction(
+      "substr",
+      {type::TypeId::VARCHAR, type::TypeId::INTEGER, type::TypeId::INTEGER},
+      type::TypeId::VARCHAR, expression::StringFunctions::Substr);
   AddFunction("concat", {type::TypeId::VARCHAR, type::TypeId::VARCHAR},
               type::TypeId::VARCHAR, expression::StringFunctions::Concat);
   AddFunction("char_length", {type::TypeId::VARCHAR}, type::TypeId::INTEGER,
@@ -834,9 +806,10 @@ void Catalog::InitializeFunctions() {
               expression::StringFunctions::OctetLength);
   AddFunction("repeat", {type::TypeId::VARCHAR, type::TypeId::INTEGER},
               type::TypeId::VARCHAR, expression::StringFunctions::Repeat);
-  AddFunction("replace", {type::TypeId::VARCHAR, type::TypeId::VARCHAR,
-                          type::TypeId::VARCHAR},
-              type::TypeId::VARCHAR, expression::StringFunctions::Replace);
+  AddFunction(
+      "replace",
+      {type::TypeId::VARCHAR, type::TypeId::VARCHAR, type::TypeId::VARCHAR},
+      type::TypeId::VARCHAR, expression::StringFunctions::Replace);
   AddFunction("ltrim", {type::TypeId::VARCHAR, type::TypeId::VARCHAR},
               type::TypeId::VARCHAR, expression::StringFunctions::LTrim);
   AddFunction("rtrim", {type::TypeId::VARCHAR, type::TypeId::VARCHAR},
@@ -852,5 +825,5 @@ void Catalog::InitializeFunctions() {
   AddFunction("extract", {type::TypeId::INTEGER, type::TypeId::TIMESTAMP},
               type::TypeId::DECIMAL, expression::DateFunctions::Extract);
 }
-}
-}
+}  // namespace catalog
+}  // namespace peloton

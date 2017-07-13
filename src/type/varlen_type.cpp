@@ -26,12 +26,12 @@ namespace type {
   uint32_t len1 = GetLength(left) - 1;                                        \
   const char *str2;                                                           \
   uint32_t len2;                                                              \
-  if (right.GetTypeId() == Type::VARCHAR) {                                   \
+  if (right.GetTypeId() == TypeId::VARCHAR) {                                 \
     str2 = right.GetData();                                                   \
     len2 = GetLength(right) - 1;                                              \
     return GetCmpBool(TypeUtil::CompareStrings(str1, len1, str2, len2) OP 0); \
   } else {                                                                    \
-    auto r_value = right.CastAs(Type::VARCHAR);                               \
+    auto r_value = right.CastAs(TypeId::VARCHAR);                             \
     str2 = r_value.GetData();                                                 \
     len2 = GetLength(r_value) - 1;                                            \
     return GetCmpBool(TypeUtil::CompareStrings(str1, len1, str2, len2) OP 0); \

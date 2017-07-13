@@ -21,6 +21,7 @@
 
 #include "common/item_pointer.h"
 #include "common/printable.h"
+#include "container/lock_free_array.h"
 #include "type/types.h"
 
 //===--------------------------------------------------------------------===//
@@ -40,7 +41,7 @@ class Transaction;
 namespace catalog {
 class Manager;
 class Schema;
-}
+}  // namespace catalog
 
 namespace storage {
 
@@ -67,11 +68,13 @@ class AbstractTable : public Printable {
   // index_entry_ptr.
   virtual ItemPointer InsertTuple(const Tuple *tuple,
                                   concurrency::Transaction *transaction,
-                                  ItemPointer **index_entry_ptr = nullptr) = 0;
+                                  ItemPointer **index_entry_ptr = nullptr,
+                                  oid_t schema_version = 0) = 0;
 
   // designed for tables without primary key. e.g., output table used by
   // aggregate_executor.
-  virtual ItemPointer InsertTuple(const Tuple *tuple) = 0;
+  virtual ItemPointer InsertTuple(const Tuple *tuple,
+                                  oid_t schema_version = 0) = 0;
 
   //===--------------------------------------------------------------------===//
   // TILE GROUP
@@ -94,9 +97,13 @@ class AbstractTable : public Printable {
 
   oid_t GetOid() const { return table_oid; }
 
-  void SetSchema(catalog::Schema *given_schema) { schema = given_schema; }
+  void SetSchema(catalog::Schema *given_schema, oid_t schema_version = 0) {
+    schema_chain_.Update(schema_version, given_schema);
+  }
 
-  catalog::Schema *GetSchema() const { return (schema); }
+  catalog::Schema *GetSchema(oid_t schema_version = 0) const {
+    return schema_chain_.Find(schema_version);
+  }
 
   virtual std::string GetName() const = 0;
 
@@ -156,5 +163,5 @@ class AbstractTable : public Printable {
   bool own_schema_;
 };
 
-}  // End storage namespace
-}  // End peloton namespace
+}  // namespace storage
+}  // namespace peloton

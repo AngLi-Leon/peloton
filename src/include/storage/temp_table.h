@@ -62,11 +62,12 @@ class TempTable : public AbstractTable {
   // index_entry_ptr.
   ItemPointer InsertTuple(const Tuple *tuple,
                           concurrency::Transaction *transaction,
-                          ItemPointer **index_entry_ptr = nullptr);
+                          ItemPointer **index_entry_ptr = nullptr,
+                          oid_t schema_version = 0);
 
   // designed for tables without primary key. e.g., output table used by
   // aggregate_executor.
-  ItemPointer InsertTuple(const Tuple *tuple);
+  ItemPointer InsertTuple(const Tuple *tuple, oid_t schema_version = 0);
 
   //===--------------------------------------------------------------------===//
   // TILE GROUP
@@ -133,5 +134,5 @@ class TempTable : public AbstractTable {
   size_t number_of_tuples_ = 0;
 };
 
-}  // End storage namespace
-}  // End peloton namespace
+}  // namespace storage
+}  // namespace peloton
