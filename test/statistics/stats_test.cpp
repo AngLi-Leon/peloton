@@ -13,19 +13,10 @@
 #include <iostream>
 
 #include "common/harness.h"
-#include "configuration/configuration.h"
 
 #include <include/tcop/tcop.h>
-#include <sys/resource.h>
-#include <time.h>
 #include "executor/testing_executor_util.h"
 #include "statistics/testing_stats_util.h"
-
-#include "executor/executor_context.h"
-#include "executor/insert_executor.h"
-#include "statistics/backend_stats_context.h"
-#include "statistics/stats_aggregator.h"
-#include "tcop/tcop.h"
 
 #define NUM_ITERATION 50
 #define NUM_TABLE_INSERT 1
@@ -141,7 +132,7 @@ TEST_F(StatsTests, MultiThreadStatsTest) {
   // Create multiple stat worker threads
   int num_threads = 8;
   storage::Database *database = catalog->GetDatabaseWithName("emp_db");
-  storage::DataTable *table = database->GetTableWithName("department_table");
+    storage::DataTable *table = catalog->GetTableWithName("emp_db", "department_table");
   LaunchParallelTest(num_threads, TransactionTest, database, table);
   // Wait for aggregation to finish
   std::chrono::microseconds sleep_time(aggregate_interval * 2 * 1000);
