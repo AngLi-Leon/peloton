@@ -37,8 +37,8 @@ TEST_F(CatalogTests, BootstrappingCatalog) {
       catalog->GetDatabaseWithName(CATALOG_DATABASE_NAME);
   EXPECT_NE(database, nullptr);
   // Check database metric table
-  auto db_metric_table =
-      database->GetTableWithName(DATABASE_METRICS_CATALOG_NAME);
+  auto db_metric_table = catalog->GetTableWithName(
+      CATALOG_DATABASE_NAME, DATABASE_METRICS_CATALOG_NAME);
   EXPECT_NE(db_metric_table, nullptr);
 }
 //
@@ -63,9 +63,9 @@ TEST_F(CatalogTests, CreatingDatabase) {
 TEST_F(CatalogTests, CreatingTable) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction();
-  auto id_column =
-      catalog::Column(type::TypeId::INTEGER,
-                      type::Type::GetTypeSize(type::TypeId::INTEGER), "id", true);
+  auto id_column = catalog::Column(
+      type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
+      "id", true);
   id_column.AddConstraint(
       catalog::Constraint(ConstraintType::PRIMARY, "primary_key"));
   auto name_column = catalog::Column(type::TypeId::VARCHAR, 32, "name", true);
@@ -105,8 +105,7 @@ TEST_F(CatalogTests, CreatingTable) {
 
   txn_manager.CommitTransaction(txn);
   EXPECT_EQ(catalog::Catalog::GetInstance()
-                ->GetDatabaseWithName("EMP_DB")
-                ->GetTableWithName("department_table")
+                ->GetTableWithName("EMP_DB", "department_table")
                 ->GetSchema()
                 ->GetColumn(1)
                 .GetName(),
@@ -218,5 +217,5 @@ TEST_F(CatalogTests, DroppingCatalog) {
   EXPECT_NE(catalog, nullptr);
 }
 
-}  // End test namespace
-}  // End peloton namespace
+}  // namespace test
+}  // namespace peloton
