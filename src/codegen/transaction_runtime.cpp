@@ -121,7 +121,7 @@ bool TransactionRuntime::PerformDelete(concurrency::Transaction &txn,
   // if it is the latest version and not locked by other threads, then
   // insert an empty version.
   // TODO: pass valid schema_version
-  ItemPointer new_location = table->InsertEmptyVersion(0);
+  ItemPointer new_location = table.InsertEmptyVersion(0);
 
   // PerformDelete() will not be executed if the insertion failed.
   if (new_location.IsNull()) {

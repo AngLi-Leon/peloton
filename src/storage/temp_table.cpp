@@ -36,7 +36,8 @@ TempTable::~TempTable() {
 
 ItemPointer TempTable::InsertTuple(
     const Tuple *tuple, UNUSED_ATTRIBUTE concurrency::Transaction *transaction,
-    UNUSED_ATTRIBUTE ItemPointer **index_entry_ptr) {
+    UNUSED_ATTRIBUTE ItemPointer **index_entry_ptr,
+    UNUSED_ATTRIBUTE oid_t schema_version) {
   PL_ASSERT(tuple != nullptr);
   PL_ASSERT(transaction == nullptr);
   PL_ASSERT(index_entry_ptr == nullptr);
@@ -78,7 +79,8 @@ ItemPointer TempTable::InsertTuple(
 
   return (location);
 }
-ItemPointer TempTable::InsertTuple(const Tuple *tuple) {
+ItemPointer TempTable::InsertTuple(const Tuple *tuple,
+                                   UNUSED_ATTRIBUTE oid_t schema_version) {
   return (this->InsertTuple(tuple, nullptr, nullptr));
 }
 
@@ -113,7 +115,7 @@ oid_t TempTable::AddDefaultTileGroup() {
 
   // Figure out the partitioning for given tilegroup layout
   column_map =
-      AbstractTable::GetTileGroupLayout((LayoutType) peloton_layout_mode, 0);
+      AbstractTable::GetTileGroupLayout((LayoutType)peloton_layout_mode, 0);
 
   // Create a tile group with that partitioning
   // TODO: make sure using the correct schema_version
@@ -131,5 +133,5 @@ oid_t TempTable::AddDefaultTileGroup() {
   return tile_group_id;
 }
 
-}  // End storage namespace
-}  // End peloton namespace
+}  // namespace storage
+}  // namespace peloton
