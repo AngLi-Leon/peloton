@@ -122,7 +122,7 @@ bool TableCatalog::DeleteTable(oid_t table_oid, concurrency::Transaction *txn) {
 */
 std::string TableCatalog::GetTableName(oid_t table_oid,
                                        concurrency::Transaction *txn) {
-  std::vector<oid_t> column_ids({1});  // table_name
+  std::vector<oid_t> column_ids({2});  // table_name
   oid_t index_offset = 0;              // Index of table_oid
   std::vector<type::Value> values;
   values.push_back(type::ValueFactory::GetIntegerValue(table_oid).Copy());
@@ -151,7 +151,7 @@ std::string TableCatalog::GetTableName(oid_t table_oid,
 */
 oid_t TableCatalog::GetDatabaseOid(oid_t table_oid,
                                    concurrency::Transaction *txn) {
-  std::vector<oid_t> column_ids({2});  // database_oid
+  std::vector<oid_t> column_ids({3});  // database_oid
   oid_t index_offset = 0;              // Index of table_oid
   std::vector<type::Value> values;
   values.push_back(type::ValueFactory::GetIntegerValue(table_oid).Copy());
@@ -208,6 +208,35 @@ oid_t TableCatalog::GetTableOid(const std::string &table_name,
   return table_oid;
 }
 
+/*@brief   read database oid one table belongs to using table oid
+ * @param   table_oid
+ * @param   txn     Transaction
+ * @return  version oid
+ */
+oid_t TableCatalog::GetVersionId(oid_t table_oid,
+                                 concurrency::Transaction *txn) {
+  std::vector<oid_t> column_ids({1});  // version
+  oid_t index_offset = 0;              // Index of table_oid
+  std::vector<type::Value> values;
+  values.push_back(type::ValueFactory::GetIntegerValue(table_oid).Copy());
+
+  auto result_tiles =
+      GetResultWithIndexScan(column_ids, index_offset, values, txn);
+
+  oid_t version_oid = INVALID_OID;
+  PL_ASSERT(result_tiles->size() <= 1);  // table_oid is unique
+  if (result_tiles->size() != 0) {
+    PL_ASSERT((*result_tiles)[0]->GetTupleCount() <= 1);
+    if ((*result_tiles)[0]->GetTupleCount() != 0) {
+      version_oid = (*result_tiles)[0]
+                        ->GetValue(0, 0)
+                        .GetAs<oid_t>();  // After projection left 1 column
+    }
+  }
+
+  return version_oid;
+}
+
 /*@brief   read all table oids from the same database using its oid
 * @param   database_oid
 * @param   txn  Transaction
@@ -242,7 +271,7 @@ std::vector<oid_t> TableCatalog::GetTableOids(oid_t database_oid,
 */
 std::vector<std::string> TableCatalog::GetTableNames(
     oid_t database_oid, concurrency::Transaction *txn) {
-  std::vector<oid_t> column_ids({1});  // table_name
+  std::vector<oid_t> column_ids({2});  // table_name
   oid_t index_offset = 2;              // Index of database_oid
   std::vector<type::Value> values;
   values.push_back(type::ValueFactory::GetIntegerValue(database_oid).Copy());
