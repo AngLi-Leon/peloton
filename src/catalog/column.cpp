@@ -42,7 +42,8 @@ void Column::SetInlined() {
 const std::string Column::GetInfo() const {
   std::ostringstream os;
 
-  os << "Column[" << column_name << ", " << TypeIdToString(column_type) << ", "
+  os << "Column[" << logical_id << ", " << column_name << ", "
+     << TypeIdToString(column_type) << ", "
      << "Offset:" << column_offset << ", ";
 
   if (is_inlined) {

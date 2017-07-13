@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "common/harness.h"
 
 #include "catalog/schema.h"
@@ -27,12 +26,15 @@ class TupleSchemaTests : public PelotonTest {};
 TEST_F(TupleSchemaTests, ColumnInfoTest) {
   std::vector<catalog::Column> columns;
 
-  catalog::Column column1(type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
-                          "A", true);
-  catalog::Column column2(type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
-                          "B", true);
-  catalog::Column column3(type::TypeId::TINYINT, type::Type::GetTypeSize(type::TypeId::TINYINT),
-                          "C", true);
+  catalog::Column column1(type::Type::INTEGER,
+                          type::Type::GetTypeSize(type::Type::INTEGER), "A",
+                          true);
+  catalog::Column column2(type::Type::INTEGER,
+                          type::Type::GetTypeSize(type::Type::INTEGER), "B",
+                          true);
+  catalog::Column column3(type::Type::TINYINT,
+                          type::Type::GetTypeSize(type::Type::TINYINT), "C",
+                          true);
 
   columns.push_back(column1);
   columns.push_back(column2);
@@ -48,13 +50,16 @@ TEST_F(TupleSchemaTests, ColumnInfoTest) {
 TEST_F(TupleSchemaTests, TupleSchemaFilteringTest) {
   std::vector<catalog::Column> columns;
 
-  catalog::Column column1(type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
-                          "A", true);
-  catalog::Column column2(type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
-                          "B", true);
-  catalog::Column column3(type::TypeId::TINYINT, type::Type::GetTypeSize(type::TypeId::TINYINT),
-                          "C", true);
-  catalog::Column column4(type::TypeId::VARCHAR, 24, "D", false);
+  catalog::Column column1(type::Type::INTEGER,
+                          type::Type::GetTypeSize(type::Type::INTEGER), "A",
+                          true);
+  catalog::Column column2(type::Type::INTEGER,
+                          type::Type::GetTypeSize(type::Type::INTEGER), "B",
+                          true);
+  catalog::Column column3(type::Type::TINYINT,
+                          type::Type::GetTypeSize(type::Type::TINYINT), "C",
+                          true);
+  catalog::Column column4(type::Type::VARCHAR, 24, "D", false);
 
   columns.push_back(column1);
   columns.push_back(column2);
@@ -70,43 +75,43 @@ TEST_F(TupleSchemaTests, TupleSchemaFilteringTest) {
   ///////////////////////////////////////////////////////////////////
   // Tests basic filterng
   ///////////////////////////////////////////////////////////////////
-  
+
   std::vector<oid_t> subset{0, 2};
-  catalog::Schema *schema3_p = catalog::Schema::FilterSchema(&schema2, subset);
+  catalog::Schema *schema3_p = catalog::Schema::CopySchema(&schema2, subset);
   LOG_INFO("%s", schema3_p->GetInfo().c_str());
 
   EXPECT_NE(schema1, (*schema3_p));
-  
+
   ///////////////////////////////////////////////////////////////////
   // Tests out of order filtering (should not affected by order)
   ///////////////////////////////////////////////////////////////////
-  
+
   subset = {2, 0};
-  catalog::Schema *schema4_p = catalog::Schema::FilterSchema(&schema2, subset);
+  catalog::Schema *schema4_p = catalog::Schema::CopySchema(&schema2, subset);
   LOG_INFO("%s", schema4_p->GetInfo().c_str());
 
   EXPECT_EQ((*schema4_p), (*schema3_p));
-  
+
   ///////////////////////////////////////////////////////////////////
   // Tests duplicated indices & out of bound indices
   ///////////////////////////////////////////////////////////////////
-  
+
   subset = {666, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 2, 100, 101};
-  
-  catalog::Schema *schema5_p = catalog::Schema::FilterSchema(&schema2, subset);
+
+  catalog::Schema *schema5_p = catalog::Schema::CopySchema(&schema2, subset);
   LOG_INFO("%s", schema5_p->GetInfo().c_str());
 
   EXPECT_EQ(schema5_p->GetColumnCount(), 2);
   EXPECT_EQ((*schema5_p), (*schema4_p));
-  
+
   delete schema3_p;
   delete schema4_p;
   delete schema5_p;
-  
+
   ///////////////////////////////////////////////////////////////////
   // All tests finished
   ///////////////////////////////////////////////////////////////////./t
-  
+
   return;
 }
 
@@ -116,13 +121,16 @@ TEST_F(TupleSchemaTests, TupleSchemaFilteringTest) {
 TEST_F(TupleSchemaTests, TupleSchemaCopyTest) {
   std::vector<catalog::Column> columns;
 
-  catalog::Column column1(type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
-                          "A", true);
-  catalog::Column column2(type::TypeId::INTEGER, type::Type::GetTypeSize(type::TypeId::INTEGER),
-                          "B", true);
-  catalog::Column column3(type::TypeId::TINYINT, type::Type::GetTypeSize(type::TypeId::TINYINT),
-                          "C", true);
-  catalog::Column column4(type::TypeId::VARCHAR, 24, "D", false);
+  catalog::Column column1(type::Type::INTEGER,
+                          type::Type::GetTypeSize(type::Type::INTEGER), "A",
+                          true);
+  catalog::Column column2(type::Type::INTEGER,
+                          type::Type::GetTypeSize(type::Type::INTEGER), "B",
+                          true);
+  catalog::Column column3(type::Type::TINYINT,
+                          type::Type::GetTypeSize(type::Type::TINYINT), "C",
+                          true);
+  catalog::Column column4(type::Type::VARCHAR, 24, "D", false);
 
   columns.push_back(column1);
   columns.push_back(column2);
@@ -175,5 +183,5 @@ TEST_F(TupleSchemaTests, TupleSchemaCopyTest) {
   return;
 }
 
-}  // End test namespace
-}  // End peloton namespace
+}  // namespace test
+}  // namespace peloton

@@ -13,10 +13,11 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
+#include "boost/algorithm/string.hpp"
 #include "catalog/column.h"
 #include "common/printable.h"
 #include "type/type.h"
-#include "boost/algorithm/string.hpp"
 
 namespace peloton {
 namespace catalog {
@@ -30,12 +31,6 @@ class Schema : public Printable {
   //===--------------------------------------------------------------------===//
   // Static factory methods to construct schema objects
   //===--------------------------------------------------------------------===//
-
-  // Construct schema
-  void CreateTupleSchema(const std::vector<type::TypeId> &column_types,
-                         const std::vector<oid_t> &column_lengths,
-                         const std::vector<std::string> &column_names,
-                         const std::vector<bool> &is_inlined);
 
   // Construct schema from vector of Column
   Schema(const std::vector<Column> &columns);
@@ -56,9 +51,6 @@ class Schema : public Printable {
   // Copy subset of columns in the given schema
   static Schema *CopySchema(const Schema *schema,
                             const std::vector<oid_t> &index_list);
-
-  static Schema *FilterSchema(const Schema *schema,
-                              const std::vector<oid_t> &set);
 
   // Append two schema objects
   static Schema *AppendSchema(Schema *first, Schema *second);
@@ -143,10 +135,10 @@ class Schema : public Printable {
   inline const std::vector<Column> &GetColumns() const { return columns; }
 
   // Return the number of columns in the schema for the tuple.
-  inline size_t GetColumnCount() const { return column_count; }
+  inline size_t GetColumnCount() const { return columns.size(); }
 
   inline oid_t GetUninlinedColumnCount() const {
-    return uninlined_column_count;
+    return uninlined_columns.size();
   }
 
   // Return the number of bytes used by one tuple.
@@ -187,6 +179,16 @@ class Schema : public Printable {
     }
   }
 
+  // Convert logical id to physical id
+  inline size_t LogicToPhysic(oid_t column_id) {
+    auto it = logic2physic.find(column_id);
+    if (it == logic2physic.end()) {
+      return -1;
+    } else {
+      return it->second;
+    }
+  }
+
   // Get a string representation for debugging
   const std::string GetInfo() const;
 
@@ -194,23 +196,27 @@ class Schema : public Printable {
   // size of fixed length columns
   size_t length;
 
-  // all inlined and uninlined columns in the tuple
+  // all inlined and uninlined columns in the tuple, indexed by (physical id)
   std::vector<Column> columns;
 
-  // keeps track of unlined columns
+  // keeps track of unlined columns (physical id)
   std::vector<oid_t> uninlined_columns;
 
-  // keep these in sync with the vectors above
-  oid_t column_count = INVALID_OID;
+  // Deprecated, this seems to duplicated information as columns.size()
+  // // keep these in sync with the vectors above
+  // oid_t column_count = INVALID_OID;
 
-  oid_t uninlined_column_count = INVALID_OID;
+  // oid_t uninlined_column_count = INVALID_OID;
 
   // are all columns inlined
   bool tuple_is_inlined;
 
-  // keeps track of indexed columns in original table
+  // keeps track of indexed columns in original table (physical id)
   std::vector<oid_t> indexed_columns_;
+
+  // logical id to physical id mapping
+  std::unordered_map<oid_t, oid_t> logic2physic;
 };
 
-}  // End catalog namespace
-}  // End peloton namespace
+}  // namespace catalog
+}  // namespace peloton

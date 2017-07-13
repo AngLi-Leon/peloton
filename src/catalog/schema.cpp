@@ -15,71 +15,42 @@
 #include <iostream>
 #include <sstream>
 
+#include "common/logger.h"
 #include "common/macros.h"
 
 namespace peloton {
 namespace catalog {
 
-// Helper function for creating TupleSchema
-void Schema::CreateTupleSchema(
-    const std::vector<type::TypeId> &column_types,
-    const std::vector<oid_t> &column_lengths,
-    const std::vector<std::string> &column_names,
-    const std::vector<bool> &is_inlined) {
-  bool tup_is_inlined = true;
-  oid_t num_columns = column_types.size();
+Schema::Schema(const std::vector<Column> &columns) : tuple_is_inlined(true) {
   oid_t column_offset = 0;
+  for (oid_t physical_id = 0; physical_id < columns.size(); physical_id++) {
+    auto column = columns[physical_id];
 
-  for (oid_t column_itr = 0; column_itr < num_columns; column_itr++) {
-    Column column(column_types[column_itr], column_lengths[column_itr],
-                  column_names[column_itr], is_inlined[column_itr],
-                  column_offset);
+    // handle uninlined column
+    if (column.IsInlined() == false) {
+      tuple_is_inlined = false;
+      uninlined_columns.push_back(physical_id);
+    }
 
+    // set logical id to physical id map, check logical id
+    auto logical_id = column.logical_id;
+    if (logical_id == INVALID_OID) {
+      LOG_ERROR("Invalid oid when creating schema!");
+    }
+
+    auto it = logic2physic.find(logical_id);
+    if (it == logic2physic.end()) {
+      logic2physic[logical_id] = physical_id;
+    } else {
+      LOG_ERROR("Duplicated oid %d when creating schema!", (int)logical_id);
+    }
+
+    // set column offset
+    column.column_offset = column_offset;
     column_offset += column.GetFixedLength();
 
-    columns.push_back(std::move(column));
-
-    if (is_inlined[column_itr] == false) {
-      tup_is_inlined = false;
-      uninlined_columns.push_back(column_itr);
-    }
-  }
-
-  length = column_offset;
-  tuple_is_inlined = tup_is_inlined;
-
-  column_count = columns.size();
-  uninlined_column_count = uninlined_columns.size();
-}
-
-// Construct schema from vector of Column
-Schema::Schema(const std::vector<Column> &columns)
-    : length(0), tuple_is_inlined(false) {
-  oid_t column_count = columns.size();
-
-  std::vector<type::TypeId> column_types;
-  std::vector<oid_t> column_lengths;
-  std::vector<std::string> column_names;
-  std::vector<bool> is_inlined;
-
-  for (oid_t column_itr = 0; column_itr < column_count; column_itr++) {
-    column_types.push_back(columns[column_itr].GetType());
-
-    if (columns[column_itr].is_inlined)
-      column_lengths.push_back(columns[column_itr].GetFixedLength());
-    else
-      column_lengths.push_back(columns[column_itr].GetVariableLength());
-
-    column_names.push_back(columns[column_itr].column_name);
-    is_inlined.push_back(columns[column_itr].IsInlined());
-  }
-
-  CreateTupleSchema(column_types, column_lengths, column_names, is_inlined);
-
-  // Add constraints
-  for (oid_t column_itr = 0; column_itr < column_count; column_itr++) {
-    for (auto constraint : columns[column_itr].GetConstraints())
-      AddConstraint(column_itr, constraint);
+    // add column
+    this->columns.push_back(column);
   }
 }
 
@@ -87,28 +58,28 @@ Schema::Schema(const std::vector<Column> &columns)
 std::shared_ptr<const Schema> Schema::CopySchema(
     const std::shared_ptr<const Schema> &schema) {
   oid_t column_count = schema->GetColumnCount();
-  std::vector<oid_t> set;
+  std::vector<oid_t> physical_ids;
 
-  for (oid_t column_itr = 0; column_itr < column_count; column_itr++)
-    set.push_back(column_itr);
+  for (oid_t physical_id = 0; physical_id < column_count; physical_id++) {
+    physical_ids.push_back(physical_id);
+  }
 
-  return CopySchema(schema, set);
+  return CopySchema(schema, physical_ids);
 }
 
 // Copy subset of columns in the given schema
 std::shared_ptr<const Schema> Schema::CopySchema(
     const std::shared_ptr<const Schema> &schema,
-    const std::vector<oid_t> &set) {
-  oid_t column_count = schema->GetColumnCount();
+    const std::vector<oid_t> &physical_ids) {
   std::vector<Column> columns;
+  columns.reserve(physical_ids.size());
 
-  for (oid_t column_itr = 0; column_itr < column_count; column_itr++) {
-    // If column exists in set
-    if (std::find(set.begin(), set.end(), column_itr) != set.end()) {
-      columns.push_back(schema->columns[column_itr]);
-    }
+  for (auto physical_id : physical_ids) {
+    PL_ASSERT(physical_id < schema->columns.size());
+    columns.push_back(schema->columns[physical_id]);
   }
 
+  // preserve max logical id when copying subset of schema
   return std::shared_ptr<Schema>(new Schema(columns));
 }
 
@@ -116,12 +87,13 @@ std::shared_ptr<const Schema> Schema::CopySchema(
 // Copy schema
 Schema *Schema::CopySchema(const Schema *schema) {
   oid_t column_count = schema->GetColumnCount();
-  std::vector<oid_t> set;
+  std::vector<oid_t> physical_ids;
 
-  for (oid_t column_itr = 0; column_itr < column_count; column_itr++)
-    set.push_back(column_itr);
+  for (oid_t physical_id = 0; physical_id < column_count; physical_id++) {
+    physical_ids.push_back(physical_id);
+  }
 
-  return CopySchema(schema, set);
+  return CopySchema(schema, physical_ids);
 }
 
 /*
@@ -142,64 +114,23 @@ Schema *Schema::CopySchema(const Schema *schema) {
  * for destroying it.
  */
 Schema *Schema::CopySchema(const Schema *schema,
-                           const std::vector<oid_t> &index_list) {
-  std::vector<Column> column_list{};
+                           const std::vector<oid_t> &physical_ids) {
+  std::vector<Column> column_list;
 
   // Reserve some space to avoid multiple ma110c() calls
   // But for future push_back() this is not optimized since the
   // memory chunk may not be properly sized and aligned
-  column_list.reserve(index_list.size());
+  column_list.reserve(physical_ids.size());
 
   // For each column index, push the column
-  for (oid_t column_index : index_list) {
+  for (oid_t physical_id : physical_ids) {
     // Make sure the index does not refer to invalid element
-    PL_ASSERT(column_index < schema->columns.size());
+    PL_ASSERT(physical_id < schema->columns.size());
 
-    column_list.push_back(schema->columns[column_index]);
+    column_list.push_back(schema->columns[physical_id]);
   }
 
   Schema *ret_schema = new Schema(column_list);
-
-  return ret_schema;
-}
-
-/*
- * FilterSchema() - Returns a filtered schema using the given base schema
- *                  and index array in the argument
- *
- * This function performs a "Filtering" operation on the schema given in the
- * argument using the index list into a newly created schema object. The
- * returned schema remains the order inside the base schema, no matter how
- * indices are arranged in the index list.
- *
- * If there are duplicated indices in the set, it is guaranteed that only
- * one column will be copied into the returned schema. This is achieved by
- * only traversing the underlying schema once and searches for the column
- * index inside the index list
- *
- * Please note that the new schame is created on the heap, and the caller
- * is responsible for destroying it.
- */
-Schema *Schema::FilterSchema(const Schema *schema,
-                             const std::vector<oid_t> &set) {
-  oid_t column_count = schema->GetColumnCount();
-  std::vector<Column> columns;
-
-  // It could only be smaller but not larger, here we use
-  // the size of the set (might have duplication) as an estimation
-  columns.reserve(set.size());
-
-  // For each column in the base schema, if the column id
-  // appears inside the set then push it into the column list
-  // for later construction of the new schema
-  for (oid_t column_itr = 0; column_itr < column_count; column_itr++) {
-    // If column exists in set
-    if (std::find(set.begin(), set.end(), column_itr) != set.end()) {
-      columns.push_back(schema->columns[column_itr]);
-    }
-  }
-
-  Schema *ret_schema = new Schema(columns);
 
   return ret_schema;
 }
@@ -233,7 +164,7 @@ Schema *Schema::AppendSchemaPtrList(const std::vector<Schema *> &schema_list) {
   std::vector<std::vector<oid_t>> subsets;
 
   for (unsigned int i = 0; i < schema_list.size(); i++) {
-    unsigned int column_count = schema_list[i]->GetColumnCount();
+    oid_t column_count = schema_list[i]->GetColumnCount();
     std::vector<oid_t> subset;
     for (oid_t column_itr = 0; column_itr < column_count; column_itr++) {
       subset.push_back(column_itr);
@@ -254,13 +185,10 @@ Schema *Schema::AppendSchemaPtrList(
   for (unsigned int i = 0; i < schema_list.size(); i++) {
     Schema *schema = schema_list[i];
     const std::vector<oid_t> &subset = subsets[i];
-    unsigned int column_count = schema->GetColumnCount();
 
-    for (oid_t column_itr = 0; column_itr < column_count; column_itr++) {
-      // If column exists in set.
-      if (std::find(subset.begin(), subset.end(), column_itr) != subset.end()) {
-        columns.push_back(schema->columns[column_itr]);
-      }
+    for (oid_t physical_id : subset) {
+      PL_ASSERT(physical_id < schema->columns.size());
+      columns.push_back(schema->columns[physical_id]);
     }
   }
 
@@ -273,14 +201,14 @@ const std::string Schema::GetInfo() const {
   std::ostringstream os;
 
   os << "Schema["
-     << "NumColumns:" << column_count << ", "
+     << "NumColumns:" << columns.size() << ", "
      << "IsInlined:" << tuple_is_inlined << ", "
      << "Length:" << length << ", "
-     << "UninlinedCount:" << uninlined_column_count << "]";
+     << "UninlinedCount:" << uninlined_columns.size() << "]";
 
   bool first = true;
   os << " :: (";
-  for (oid_t i = 0; i < column_count; i++) {
+  for (oid_t i = 0; i < columns.size(); i++) {
     if (first) {
       first = false;
     } else {
@@ -316,5 +244,5 @@ bool Schema::operator==(const Schema &other) const {
 
 bool Schema::operator!=(const Schema &other) const { return !(*this == other); }
 
-}  // End catalog namespace
-}  // End peloton namespace
+}  // namespace catalog
+}  // namespace peloton

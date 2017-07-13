@@ -119,6 +119,10 @@ class Column : public Printable {
  public:
   // TODO: These should all be made private
 
+  // logical column id (This id should remain the same after alter table)
+  //                   (dropped column id cannot be reused)
+  oid_t logical_id;
+
   // if the column is inlined, this is set to 0
   // else, it is set to length of the variable length column
   oid_t variable_length = INVALID_OID;
