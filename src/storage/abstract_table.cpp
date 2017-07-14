@@ -33,15 +33,18 @@ AbstractTable::AbstractTable(id_t table_oid, catalog::Schema *schema,
 AbstractTable::~AbstractTable() {
   // clean up schema
   if (own_schema_) {
-    schema_chain_.Clear(nullptr);
+    for (size_t i = 0; i < schema_chain_.GetSize(); i++) {
+      auto schema = schema_chain_.Find(i);
+      if (schema != nullptr) delete schema;
+    }
   }
 }
 
-  column_map_type AbstractTable::GetTileGroupLayout(LayoutType layout_type,
-                                                    oid_t schema_version) const {
+column_map_type AbstractTable::GetTileGroupLayout(LayoutType layout_type,
+                                                  oid_t schema_version) const {
   column_map_type column_map;
 
-    auto col_count = schema_chain_.Find(schema_version)->GetColumnCount();
+  auto col_count = schema_chain_.Find(schema_version)->GetColumnCount();
 
   // pure row layout map
   if (layout_type == LAYOUT_TYPE_ROW) {
@@ -124,5 +127,5 @@ const std::string AbstractTable::GetInfo() const {
   return output.str();
 }
 
-}  // End storage namespace
-}  // End peloton namespace
+}  // namespace storage
+}  // namespace peloton

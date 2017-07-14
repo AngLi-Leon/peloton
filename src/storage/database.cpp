@@ -78,7 +78,7 @@ void Database::DropTableWithOid(const oid_t table_oid) {
     oid_t table_offset = 0;
     for (auto table : tables) {
       if (table->GetOid() == table_oid) {
-        delete table;
+        // delete table;
         break;
       }
       table_offset++;
@@ -173,5 +173,5 @@ void Database::setDBName(const std::string &database_name) {
   Database::database_name = database_name;
 }
 
-}  // End storage namespace
-}  // End peloton namespace
+}  // namespace storage
+}  // namespace peloton

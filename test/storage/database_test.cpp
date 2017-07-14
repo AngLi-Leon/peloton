@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "common/harness.h"
 
 #include "storage/data_table.h"
@@ -41,7 +40,6 @@ TEST_F(DatabaseTests, AddDropTest) {
   EXPECT_FALSE(storage_manager->HasDatabase(db_id));
 }
 
-
 TEST_F(DatabaseTests, AddDropTableTest) {
   // ADD!
   auto storage_manager = storage::StorageManager::GetInstance();
@@ -59,17 +57,17 @@ TEST_F(DatabaseTests, AddDropTableTest) {
 
   EXPECT_TRUE(database->GetTableCount() == 1);
 
-
   database->DropTableWithOid(table_oid);
-  
+
   EXPECT_TRUE(database->GetTableCount() == 0);
 
-  data_table.release();
+  auto raw_table = data_table.release();
+  delete raw_table;
 
   // DROP!
   TestingExecutorUtil::DeleteDatabase(DEFAULT_DB_NAME);
   EXPECT_FALSE(storage_manager->HasDatabase(db_id));
 }
 
-}  // End test namespace
-}  // End peloton namespace
+}  // namespace test
+}  // namespace peloton

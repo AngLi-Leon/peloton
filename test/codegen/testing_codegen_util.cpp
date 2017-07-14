@@ -46,8 +46,10 @@ std::unique_ptr<catalog::Schema> PelotonCodeGenTest::CreateTestSchema() const {
   bool is_inlined = true;
 
   // Create the columns
-  static const uint32_t int_size = type::Type::GetTypeSize(type::TypeId::INTEGER);
-  static const uint32_t dec_size = type::Type::GetTypeSize(type::TypeId::DECIMAL);
+  static const uint32_t int_size =
+      type::Type::GetTypeSize(type::TypeId::INTEGER);
+  static const uint32_t dec_size =
+      type::Type::GetTypeSize(type::TypeId::DECIMAL);
   std::vector<catalog::Column> cols = {
       catalog::Column{type::TypeId::INTEGER, int_size, "COL_A", is_inlined},
       catalog::Column{type::TypeId::INTEGER, int_size, "COL_B", is_inlined},
@@ -112,8 +114,9 @@ void PelotonCodeGenTest::LoadTestTable(TableId table_id, uint32_t num_rows,
   auto *table_schema = test_table.GetSchema();
   size_t curr_size = test_table.GetTupleCount();
 
-  auto col_val =
-      [](uint32_t tuple_id, uint32_t col_id) { return 10 * tuple_id + col_id; };
+  auto col_val = [](uint32_t tuple_id, uint32_t col_id) {
+    return 10 * tuple_id + col_id;
+  };
 
   const bool allocate = true;
   auto testing_pool = TestingHarness::GetInstance().GetTestingPool();
@@ -137,7 +140,7 @@ void PelotonCodeGenTest::LoadTestTable(TableId table_id, uint32_t num_rows,
 
     ItemPointer *index_entry_ptr = nullptr;
     ItemPointer tuple_slot_id =
-        test_table.InsertTuple(&tuple, txn, &index_entry_ptr);
+        test_table.InsertTuple(&tuple, txn, &index_entry_ptr, 0);
     PL_ASSERT(tuple_slot_id.block != INVALID_OID);
     PL_ASSERT(tuple_slot_id.offset != INVALID_OID);
 
@@ -162,8 +165,9 @@ codegen::QueryCompiler::CompileStats PelotonCodeGenTest::CompileAndExecute(
 
   // Run
   compiled_query->Execute(*txn,
-                          std::unique_ptr<executor::ExecutorContext> (
-                             new executor::ExecutorContext{txn}).get(),
+                          std::unique_ptr<executor::ExecutorContext>(
+                              new executor::ExecutorContext{txn})
+                              .get(),
                           consumer_state);
 
   txn_manager.CommitTransaction(txn);

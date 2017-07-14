@@ -602,7 +602,9 @@ ResultType Catalog::DropTable(oid_t database_oid, oid_t table_oid,
     ColumnCatalog::GetInstance()->DeleteColumns(table_oid, txn);
     // STEP 3
     TableCatalog::GetInstance()->DeleteTable(table_oid, txn);
-    // STEP 4
+    // STEP 4, erase record in datatbase, but keep object
+    txn->RecordDropedTable(
+        storage_manager->GetTableWithOid(database_oid, table_oid));
     database->DropTableWithOid(table_oid);
 
     return ResultType::SUCCESS;

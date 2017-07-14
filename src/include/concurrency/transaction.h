@@ -21,6 +21,7 @@
 #include "common/exception.h"
 #include "common/item_pointer.h"
 #include "common/printable.h"
+#include "storage/data_table.h"
 #include "type/types.h"
 
 namespace peloton {
@@ -34,33 +35,26 @@ class Transaction : public Printable {
   Transaction(Transaction const &) = delete;
 
  public:
-  Transaction(const size_t thread_id,
-              const IsolationLevelType isolation,
+  Transaction(const size_t thread_id, const IsolationLevelType isolation,
               const cid_t &read_id) {
     Init(thread_id, isolation, read_id);
   }
 
-  Transaction(const size_t thread_id,
-              const IsolationLevelType isolation,
-              const cid_t &read_id, 
-              const cid_t &commit_id) {
+  Transaction(const size_t thread_id, const IsolationLevelType isolation,
+              const cid_t &read_id, const cid_t &commit_id) {
     Init(thread_id, isolation, read_id, commit_id);
   }
 
   ~Transaction() {}
 
  private:
-
-  void Init(const size_t thread_id, 
-            const IsolationLevelType isolation, 
+  void Init(const size_t thread_id, const IsolationLevelType isolation,
             const cid_t &read_id) {
     Init(thread_id, isolation, read_id, read_id);
   }
 
-  void Init(const size_t thread_id, 
-            const IsolationLevelType isolation, 
-            const cid_t &read_id, 
-            const cid_t &commit_id) {
+  void Init(const size_t thread_id, const IsolationLevelType isolation,
+            const cid_t &read_id, const cid_t &commit_id) {
     read_id_ = read_id;
 
     // commit id can be set at a transaction's commit phase.
@@ -76,12 +70,11 @@ class Transaction : public Printable {
     isolation_level_ = isolation;
 
     is_written_ = false;
-    
+
     insert_count_ = 0;
-    
+
     gc_set_.reset(new GCSet());
   }
-
 
  public:
   //===--------------------------------------------------------------------===//
@@ -111,10 +104,17 @@ class Transaction : public Printable {
   // Return true if we detect INS_DEL
   bool RecordDelete(const ItemPointer &);
 
+  void RecordDropedTable(storage::DataTable *table) {
+    dropped_tables.push_back(table);
+  }
+
+  std::vector<storage::DataTable *> &GetDroppedTables() {
+    return dropped_tables;
+  }
+
   RWType GetRWType(const ItemPointer &);
 
   bool IsInRWSet(const ItemPointer &location) {
-
     oid_t tile_group_id = location.block;
     oid_t tuple_id = location.offset;
 
@@ -129,9 +129,7 @@ class Transaction : public Printable {
 
   inline const ReadWriteSet &GetReadWriteSet() { return rw_set_; }
 
-  inline std::shared_ptr<GCSet> GetGCSetPtr() {
-    return gc_set_;
-  }
+  inline std::shared_ptr<GCSet> GetGCSetPtr() { return gc_set_; }
 
   inline bool IsGCSetEmpty() { return gc_set_->size() == 0; }
 
@@ -168,7 +166,8 @@ class Transaction : public Printable {
   cid_t read_id_;
 
   // commit id
-  // this id determines the id attached to the tuple version written by the transaction.
+  // this id determines the id attached to the tuple version written by the
+  // transaction.
   cid_t commit_id_;
 
   // epoch id can be extracted from read id.
@@ -183,12 +182,14 @@ class Transaction : public Printable {
   // result of the transaction
   ResultType result_ = ResultType::SUCCESS;
 
+  // store dropped table
+  std::vector<storage::DataTable *> dropped_tables;
+
   bool is_written_;
   size_t insert_count_;
 
   IsolationLevelType isolation_level_;
-
 };
 
-}  // End concurrency namespace
-}  // End peloton namespace
+}  // namespace concurrency
+}  // namespace peloton
