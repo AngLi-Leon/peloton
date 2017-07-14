@@ -226,7 +226,7 @@ oid_t TableCatalog::GetTableOid(const std::string &table_name,
  */
 oid_t TableCatalog::GetVersionId(oid_t table_oid,
                                  concurrency::Transaction *txn) {
-  std::vector<oid_t> column_ids({1});  // version
+  std::vector<oid_t> column_ids({1});  // version_oid
   oid_t index_offset = 0;              // Index of table_oid
   std::vector<type::Value> values;
   values.push_back(type::ValueFactory::GetIntegerValue(table_oid).Copy());
@@ -300,6 +300,22 @@ std::vector<std::string> TableCatalog::GetTableNames(
   }
 
   return table_names;
+}
+
+bool TableCatalog::UpdateVersionId(oid_t update_val, oid_t table_oid,
+                                   concurrency::Transaction *txn) {
+  std::vector<oid_t> update_columns({1});  // version_oid
+  oid_t index_offset = 0;                  // Index of table_oid
+  // values to execute index scan
+  std::vector<type::Value> scan_values;
+  scan_values.push_back(type::ValueFactory::GetIntegerValue(table_oid).Copy());
+  // values to update
+  std::vector<type::Value> update_values;
+  update_values.push_back(
+      type::ValueFactory::GetIntegerValue(update_val).Copy());
+
+  return UpdateWithIndexScan(update_columns, update_values, scan_values,
+                             index_offset, txn);
 }
 
 }  // namespace catalog

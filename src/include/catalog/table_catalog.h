@@ -15,8 +15,9 @@
 //
 // Schema: (column position: column_name)
 // 0: table_oid (pkey)
-// 1: table_name,
-// 2: database_oid(the database oid that this table belongs to)
+// 1: version_oid
+// 2: table_name
+// 3: database_oid(the database oid that this table belongs to)
 //
 // Indexes: (index offset: indexed columns)
 // 0: table_oid (unique & primary key)
@@ -50,6 +51,9 @@ class TableCatalog : public AbstractCatalog {
                    oid_t database_oid, type::AbstractPool *pool,
                    concurrency::Transaction *txn, oid_t version_oid = 0);
   bool DeleteTable(oid_t table_oid, concurrency::Transaction *txn);
+
+  bool UpdateVersionId(oid_t update_val, oid_t table_oid,
+                       concurrency::Transaction *txn);
 
   //===--------------------------------------------------------------------===//
   // Read Related API

@@ -18,8 +18,9 @@
 #include "executor/delete_executor.h"
 #include "executor/executor_context.h"
 #include "executor/index_scan_executor.h"
-#include "executor/seq_scan_executor.h"
 #include "executor/insert_executor.h"
+#include "executor/seq_scan_executor.h"
+#include "executor/update_executor.h"
 #include "expression/comparison_expression.h"
 #include "expression/constant_value_expression.h"
 #include "expression/tuple_value_expression.h"
@@ -27,6 +28,8 @@
 #include "planner/delete_plan.h"
 #include "planner/index_scan_plan.h"
 #include "planner/insert_plan.h"
+#include "planner/project_info.h"
+#include "planner/update_plan.h"
 #include "storage/data_table.h"
 #include "storage/database.h"
 #include "storage/table_factory.h"
@@ -70,6 +73,11 @@ class AbstractCatalog {
                        expression::AbstractExpression *predicate,
                        concurrency::Transaction *txn);
 
+  bool UpdateWithIndexScan(std::vector<oid_t> update_columns,
+                           std::vector<type::Value> update_values,
+                           std::vector<type::Value> scan_values,
+                           oid_t index_offset, concurrency::Transaction *txn);
+
   void AddIndex(const std::vector<oid_t> &key_attrs, oid_t index_oid,
                 const std::string &index_name,
                 IndexConstraintType index_constraint);
@@ -86,5 +94,5 @@ class AbstractCatalog {
   storage::DataTable *catalog_table_;
 };
 
-}  // End catalog namespace
-}  // End peloton namespace
+}  // namespace catalog
+}  // namespace peloton

@@ -154,21 +154,22 @@ TEST_F(CatalogTests, DroppingTable) {
   auto txn = txn_manager.BeginTransaction();
   oid_t database_oid =
       catalog::Catalog::GetInstance()->GetDatabaseWithName("EMP_DB")->GetOid();
-  catalog::Catalog::GetInstance()->DropTable("EMP_DB", "department_table", txn);
 
   oid_t department_table_oid =
       catalog::TableCatalog::GetInstance()->GetTableOid("department_table",
                                                         database_oid, txn);
+  // update pg_table SET version_oid = 1 where table_name = department_table
+  bool update_result = catalog::TableCatalog::GetInstance()->UpdateVersionId(
+      1, department_table_oid, txn);
+  // get version id after update
+  oid_t version_oid = catalog::TableCatalog::GetInstance()->GetVersionId(
+      department_table_oid, txn);
   txn_manager.CommitTransaction(txn);
-  //  catalog::Catalog::GetInstance()->PrintCatalogs();
-  EXPECT_EQ(catalog::Catalog::GetInstance()
-                ->GetDatabaseWithName("EMP_DB")
-                ->GetTableCount(),
-            2);
+  EXPECT_NE(department_table_oid, INVALID_OID);
+  EXPECT_EQ(update_result, true);
+  EXPECT_EQ(version_oid, 1);
 
-  EXPECT_EQ(department_table_oid, INVALID_OID);
-
-  // Try to drop again
+  // Try to drop table
   txn = txn_manager.BeginTransaction();
   ResultType result = catalog::Catalog::GetInstance()->DropTable(
       "EMP_DB", "department_table", txn);
@@ -179,7 +180,7 @@ TEST_F(CatalogTests, DroppingTable) {
                 ->GetTableCount(),
             2);
 
-  EXPECT_EQ(result, ResultType::FAILURE);
+  EXPECT_EQ(result, ResultType::SUCCESS);
 
   // Drop a table that does not exist
   txn = txn_manager.BeginTransaction();
