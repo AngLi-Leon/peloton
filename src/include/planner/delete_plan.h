@@ -13,9 +13,9 @@
 #pragma once
 
 #include "catalog/schema.h"
-#include "type/types.h"
 #include "parser/table_ref.h"
 #include "planner/abstract_plan.h"
+#include "type/types.h"
 
 namespace peloton {
 
@@ -46,13 +46,15 @@ class DeletePlan : public AbstractPlan {
   explicit DeletePlan(storage::DataTable *table,
                       const expression::AbstractExpression *predicate);
 
-  inline PlanNodeType GetPlanNodeType() const { return PlanNodeType::DELETE; }
+  inline PlanNodeType GetPlanNodeType() const override {
+    return PlanNodeType::DELETE;
+  }
 
   storage::DataTable *GetTable() const { return target_table_; }
 
   oid_t GetSchemaVersion() const { return schema_version_; }
 
-  const std::string GetInfo() const { return "DeletePlan"; }
+  const std::string GetInfo() const override { return "DeletePlan"; }
 
   void SetParameterValues(std::vector<type::Value> *values) override;
 
@@ -60,7 +62,7 @@ class DeletePlan : public AbstractPlan {
 
   expression::AbstractExpression *GetPredicate() { return expr_; }
 
-  std::unique_ptr<AbstractPlan> Copy() const {
+  std::unique_ptr<AbstractPlan> Copy() const override {
     return std::unique_ptr<AbstractPlan>(
         new DeletePlan(target_table_, truncate));
   }
