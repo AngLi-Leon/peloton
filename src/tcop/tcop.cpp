@@ -30,7 +30,6 @@
 #include "catalog/catalog.h"
 #include "executor/plan_executor.h"
 #include "optimizer/optimizer.h"
-#include "optimizer/simple_optimizer.h"
 #include "planner/plan_util.h"
 
 #include <include/parser/postgresparser.h>
@@ -189,7 +188,7 @@ ResultType TrafficCop::ExecuteStatement(
             planner::PlanUtil::GetInfo(statement->GetPlanTree().get()).c_str());
 
   try {
-    switch(statement->GetQueryType()) {
+    switch (statement->GetQueryType()) {
       case QueryType::QUERY_BEGIN:
         return BeginQueryHelper(thread_id);
       case QueryType::QUERY_COMMIT:
@@ -197,9 +196,9 @@ ResultType TrafficCop::ExecuteStatement(
       case QueryType::QUERY_ROLLBACK:
         return AbortQueryHelper();
       default:
-        auto status = ExecuteStatementPlan(statement->GetPlanTree().get(), params,
-                                           result, result_format,
-                                           thread_id);
+        auto status =
+            ExecuteStatementPlan(statement->GetPlanTree().get(), params, result,
+                                 result_format, thread_id);
         LOG_TRACE("Statement executed. Result: %s",
                   ResultTypeToString(status.m_result).c_str());
         rows_changed = status.m_processed;
@@ -394,8 +393,8 @@ std::vector<FieldInfo> TrafficCop::GenerateTupleDescriptor(
   return tuple_descriptor;
 }
 
-FieldInfo TrafficCop::GetColumnFieldForValueType(
-    std::string column_name, type::TypeId column_type) {
+FieldInfo TrafficCop::GetColumnFieldForValueType(std::string column_name,
+                                                 type::TypeId column_type) {
   PostgresValueType field_type;
   size_t field_size;
   switch (column_type) {
